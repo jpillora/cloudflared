@@ -474,47 +474,56 @@ func StartServer(
 		return err
 	}
 
-	metricsListener, err := metrics.CreateMetricsListener(&listeners, c.String("metrics"))
-	if err != nil {
-		log.Err(err).Msg("Error opening metrics server listener")
-		return errors.Wrap(err, "Error opening metrics server listener")
+	// The metrics/readiness/diagnostic server binds an OS TCP listener. The
+	// normal CLI always runs it; when embedded it is strictly opt-in via
+	// EmbedOptions.MetricsAddr (empty => no metrics server, no TCP listener).
+	if !emb.embedded || emb.metricsAddr != "" {
+		metricsAddr := c.String("metrics")
+		if emb.embedded {
+			metricsAddr = emb.metricsAddr
+		}
+		metricsListener, err := metrics.CreateMetricsListener(&listeners, metricsAddr)
+		if err != nil {
+			log.Err(err).Msg("Error opening metrics server listener")
+			return errors.Wrap(err, "Error opening metrics server listener")
+		}
+
+		defer func() { _ = metricsListener.Close() }()
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+			tracker := tunnelstate.NewConnTracker(log)
+			observer.RegisterSink(tracker)
+
+			ipv4, ipv6, err := determineICMPSources(c, log)
+			sources := make([]string, 0)
+			if err == nil {
+				sources = append(sources, ipv4.String())
+				sources = append(sources, ipv6.String())
+			}
+
+			readinessServer := metrics.NewReadyServer(connectorID, tracker)
+			cliFlags := nonSecretCliFlags(log, c, nonSecretFlagsList)
+			diagnosticHandler := diagnostic.NewDiagnosticHandler(
+				log,
+				0,
+				diagnostic.NewSystemCollectorImpl(buildInfo.CloudflaredVersion),
+				tunnelConfig.NamedTunnel.Credentials.TunnelID,
+				connectorID,
+				tracker,
+				cliFlags,
+				sources,
+			)
+			metricsConfig := metrics.Config{
+				ReadyServer:         readinessServer,
+				DiagnosticHandler:   diagnosticHandler,
+				QuickTunnelHostname: quickTunnelURL,
+				Orchestrator:        orchestrator,
+			}
+			errC <- metrics.ServeMetrics(metricsListener, ctx, metricsConfig, log)
+		}()
 	}
-
-	defer func() { _ = metricsListener.Close() }()
-	wg.Add(1)
-
-	go func() {
-		defer wg.Done()
-		tracker := tunnelstate.NewConnTracker(log)
-		observer.RegisterSink(tracker)
-
-		ipv4, ipv6, err := determineICMPSources(c, log)
-		sources := make([]string, 0)
-		if err == nil {
-			sources = append(sources, ipv4.String())
-			sources = append(sources, ipv6.String())
-		}
-
-		readinessServer := metrics.NewReadyServer(connectorID, tracker)
-		cliFlags := nonSecretCliFlags(log, c, nonSecretFlagsList)
-		diagnosticHandler := diagnostic.NewDiagnosticHandler(
-			log,
-			0,
-			diagnostic.NewSystemCollectorImpl(buildInfo.CloudflaredVersion),
-			tunnelConfig.NamedTunnel.Credentials.TunnelID,
-			connectorID,
-			tracker,
-			cliFlags,
-			sources,
-		)
-		metricsConfig := metrics.Config{
-			ReadyServer:         readinessServer,
-			DiagnosticHandler:   diagnosticHandler,
-			QuickTunnelHostname: quickTunnelURL,
-			Orchestrator:        orchestrator,
-		}
-		errC <- metrics.ServeMetrics(metricsListener, ctx, metricsConfig, log)
-	}()
 
 	reconnectCh := make(chan supervisor.ReconnectSignal, c.Int(cfdflags.HaConnections))
 	if c.IsSet("stdin-control") {
