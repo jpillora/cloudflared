@@ -6,7 +6,12 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
@@ -26,7 +31,9 @@ const defaultQuickService = "https://api.trycloudflare.com"
 // would parse.
 type EmbedOptions struct {
 	// OriginURL is the local service cloudflared proxies to, e.g.
-	// "http://127.0.0.1:7247".
+	// "http://127.0.0.1:7247". A "unix:/path/to.sock" value proxies to a unix
+	// domain socket instead of a TCP address (no port is opened) — this is how
+	// Listen exposes an in-process origin without binding an OS TCP listener.
 	OriginURL string
 	// Token, when set, runs a named tunnel using the base64 Cloudflare tunnel
 	// token. When empty, an account-less quick tunnel is requested instead.
@@ -41,23 +48,31 @@ type EmbedOptions struct {
 	Sink connection.EventSinkFunc
 	// Version is reported in the User-Agent and build info.
 	Version string
+	// MetricsAddr, when non-empty, runs cloudflared's metrics/readiness/
+	// diagnostic HTTP server on this address (e.g. "127.0.0.1:0"). Empty
+	// (default) means no metrics server is started and no OS TCP listener is
+	// opened — metrics are strictly opt-in when embedded.
+	MetricsAddr string
 }
 
 // EmbedServerOption tunes StartServer for in-process use.
 type EmbedServerOption func(*embedServerOptions)
 
 type embedServerOptions struct {
-	embedded bool
-	sink     connection.EventSinkFunc
+	embedded    bool
+	sink        connection.EventSinkFunc
+	metricsAddr string
 }
 
 // withEmbedded marks a StartServer call as host-embedded: it must not trap
-// process signals, initialise sentry, or run the autoupdater, and it registers
-// sink on the connection observer.
-func withEmbedded(sink connection.EventSinkFunc) EmbedServerOption {
+// process signals, initialise sentry, run the autoupdater, or start the metrics
+// server (unless metricsAddr is set), and it registers sink on the connection
+// observer.
+func withEmbedded(sink connection.EventSinkFunc, metricsAddr string) EmbedServerOption {
 	return func(o *embedServerOptions) {
 		o.embedded = true
 		o.sink = sink
+		o.metricsAddr = metricsAddr
 	}
 }
 
@@ -92,7 +107,7 @@ func RunEmbedded(ctx context.Context, o EmbedOptions) error {
 			info,
 			&connection.TunnelProperties{Credentials: tok.Credentials()},
 			o.Logger,
-			withEmbedded(o.Sink),
+			withEmbedded(o.Sink, o.MetricsAddr),
 		)
 	}
 	return o.runQuick(ctx, c, info)
@@ -136,7 +151,13 @@ func (o EmbedOptions) buildContext(ctx context.Context, info *cliutil.BuildInfo)
 			o.Logger.Warn().Str("flag", name).Err(err).Msg("embed: failed to set flag")
 		}
 	}
-	if o.OriginURL != "" {
+	// A "unix:" origin routes through the --unix-socket flag; the --url flag only
+	// understands TCP/HTTP schemes (and the two are mutually exclusive). This is
+	// what lets Listen serve an in-process handler with no OS TCP listener.
+	switch {
+	case strings.HasPrefix(o.OriginURL, "unix:"):
+		set("unix-socket", strings.TrimPrefix(o.OriginURL, "unix:"))
+	case o.OriginURL != "":
 		set("url", o.OriginURL)
 	}
 	set(cfdflags.Protocol, "quic")
@@ -196,6 +217,62 @@ func (o EmbedOptions) runQuick(ctx context.Context, c *cli.Context, info *cliuti
 		info,
 		&connection.TunnelProperties{Credentials: credentials, QuickTunnelUrl: data.Result.Hostname},
 		o.Logger,
-		withEmbedded(o.Sink),
+		withEmbedded(o.Sink, o.MetricsAddr),
 	)
+}
+
+// Listen starts an in-process cloudflared tunnel and returns a net.Listener
+// whose connections are proxied from the public Cloudflare edge — hand it
+// straight to http.Serve. No OS TCP port is ever bound: cloudflared bridges the
+// tunnel to a private unix-socket origin that backs the returned listener, so
+// the listener *is* the tunnel.
+//
+// A quick (account-less) tunnel is used unless o.Token is set. The public URL
+// is delivered through o.Sink (a connection.SetURL event) as soon as it is
+// allocated. Listen returns as soon as the origin socket is ready; the tunnel
+// connects in the background. Closing the returned listener (or canceling ctx)
+// stops serving and tears the tunnel down. o.OriginURL is ignored — Listen owns
+// the origin.
+func Listen(ctx context.Context, o EmbedOptions) (net.Listener, error) {
+	if o.Logger == nil {
+		return nil, fmt.Errorf("embed: Logger is required")
+	}
+	dir, err := os.MkdirTemp("", "cfembed")
+	if err != nil {
+		return nil, fmt.Errorf("embed: create origin dir: %w", err)
+	}
+	sock := filepath.Join(dir, "origin.sock")
+	ln, err := net.Listen("unix", sock)
+	if err != nil {
+		_ = os.RemoveAll(dir)
+		return nil, fmt.Errorf("embed: listen on origin socket: %w", err)
+	}
+	o.OriginURL = "unix:" + sock
+
+	ctx, cancel := context.WithCancel(ctx)
+	tl := &tunnelListener{Listener: ln, cancel: cancel, dir: dir}
+	go func() {
+		if err := RunEmbedded(ctx, o); err != nil && ctx.Err() == nil {
+			o.Logger.Error().Err(err).Msg("embed: tunnel exited")
+		}
+		_ = tl.Close()
+	}()
+	return tl, nil
+}
+
+// tunnelListener is the net.Listener returned by Listen. Its connections arrive
+// from the Cloudflare edge via a private unix-socket origin. Close stops the
+// tunnel and removes the socket's temp dir.
+type tunnelListener struct {
+	net.Listener
+	cancel    context.CancelFunc
+	dir       string
+	closeOnce sync.Once
+}
+
+func (l *tunnelListener) Close() error {
+	l.cancel()
+	err := l.Listener.Close()
+	l.closeOnce.Do(func() { _ = os.RemoveAll(l.dir) })
+	return err
 }
