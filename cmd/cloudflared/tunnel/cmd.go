@@ -320,13 +320,19 @@ func StartServer(
 	info *cliutil.BuildInfo,
 	namedTunnel *connection.TunnelProperties,
 	log *zerolog.Logger,
+	embedOpts ...EmbedServerOption,
 ) error {
-	err := sentry.Init(sentry.ClientOptions{
-		Dsn:     sentryDSN,
-		Release: c.App.Version,
-	})
-	if err != nil {
-		return err
+	var emb embedServerOptions
+	for _, opt := range embedOpts {
+		opt(&emb)
+	}
+	if !emb.embedded {
+		if err := sentry.Init(sentry.ClientOptions{
+			Dsn:     sentryDSN,
+			Release: c.App.Version,
+		}); err != nil {
+			return err
+		}
 	}
 	var wg sync.WaitGroup
 	listeners := gracenet.Net{}
@@ -379,22 +385,28 @@ func StartServer(
 	ctx, cancel := context.WithCancel(c.Context)
 	defer cancel()
 
-	go waitForSignal(graceShutdownC, log)
+	if !emb.embedded {
+		go waitForSignal(graceShutdownC, log)
+	}
 
 	connectedSignal := signal.New(make(chan struct{}))
-	go notifySystemd(connectedSignal)
+	if !emb.embedded {
+		go notifySystemd(connectedSignal)
+	}
 	if c.IsSet("pidfile") {
 		go writePidFile(connectedSignal, c.String("pidfile"), log)
 	}
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		autoupdater := updater.NewAutoUpdater(
-			c.Bool(cfdflags.NoAutoUpdate), c.Duration(cfdflags.AutoUpdateFreq), &listeners, log,
-		)
-		errC <- autoupdater.Run(ctx)
-	}()
+	if !emb.embedded {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			autoupdater := updater.NewAutoUpdater(
+				c.Bool(cfdflags.NoAutoUpdate), c.Duration(cfdflags.AutoUpdateFreq), &listeners, log,
+			)
+			errC <- autoupdater.Run(ctx)
+		}()
+	}
 
 	if namedTunnel == nil {
 		return fmt.Errorf("namedTunnel is nil")
@@ -403,6 +415,9 @@ func StartServer(
 	logTransport := logger.CreateTransportLoggerFromContext(c, logger.EnableTerminalLog)
 
 	observer := connection.NewObserver(log, logTransport)
+	if emb.sink != nil {
+		observer.RegisterSink(emb.sink)
+	}
 
 	// Send Quick Tunnel URL to UI if applicable
 	quickTunnelURL := namedTunnel.QuickTunnelUrl
