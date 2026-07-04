@@ -11,12 +11,12 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 
-	"github.com/cloudflare/cloudflared/cmd/cloudflared/cliutil"
-	cfdflags "github.com/cloudflare/cloudflared/cmd/cloudflared/flags"
-	"github.com/cloudflare/cloudflared/config"
-	"github.com/cloudflare/cloudflared/credentials"
-	"github.com/cloudflare/cloudflared/logger"
-	"github.com/cloudflare/cloudflared/token"
+	"github.com/jpillora/cloudflared/cmd/cloudflared/cliutil"
+	cfdflags "github.com/jpillora/cloudflared/cmd/cloudflared/flags"
+	"github.com/jpillora/cloudflared/config"
+	"github.com/jpillora/cloudflared/credentials"
+	"github.com/jpillora/cloudflared/logger"
+	"github.com/jpillora/cloudflared/token"
 )
 
 const (

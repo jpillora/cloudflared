@@ -6,12 +6,12 @@ ENV GO111MODULE=on \
   CGO_ENABLED=0 \
   TARGET_GOOS=${TARGET_GOOS} \
   TARGET_GOARCH=${TARGET_GOARCH} \
-  # the CONTAINER_BUILD envvar is used set github.com/cloudflare/cloudflared/metrics.Runtime=virtual
+  # the CONTAINER_BUILD envvar is used set github.com/jpillora/cloudflared/metrics.Runtime=virtual
   # which changes how cloudflared binds the metrics server
   CONTAINER_BUILD=1
 
 
-WORKDIR /go/src/github.com/cloudflare/cloudflared/
+WORKDIR /go/src/github.com/jpillora/cloudflared/
 
 # copy our sources into the builder image
 COPY . .
@@ -25,7 +25,7 @@ FROM gcr.io/distroless/base-debian13:nonroot@sha256:ab7554b6d07ad354fad31957f8a1
 LABEL org.opencontainers.image.source="https://github.com/cloudflare/cloudflared"
 
 # copy our compiled binary
-COPY --from=builder --chown=nonroot /go/src/github.com/cloudflare/cloudflared/cloudflared /usr/local/bin/
+COPY --from=builder --chown=nonroot /go/src/github.com/jpillora/cloudflared/cloudflared /usr/local/bin/
 
 # run as nonroot user
 # We need to use numeric user id's because Kubernetes doesn't support strings:

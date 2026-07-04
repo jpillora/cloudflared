@@ -11,7 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/cloudflare/cloudflared/config"
+	"github.com/jpillora/cloudflared/config"
 )
 
 func TestUnixSocketOrigin(t *testing.T) {

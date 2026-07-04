@@ -6,9 +6,9 @@ import (
 	"github.com/rs/zerolog"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/cloudflare/cloudflared/ingress"
-	"github.com/cloudflare/cloudflared/packet"
-	"github.com/cloudflare/cloudflared/tracing"
+	"github.com/jpillora/cloudflared/ingress"
+	"github.com/jpillora/cloudflared/packet"
+	"github.com/jpillora/cloudflared/tracing"
 )
 
 // packetResponder is an implementation of the [ingress.ICMPResponder] which provides the ICMP Flow manager the

@@ -16,9 +16,9 @@ import (
 
 	"github.com/rs/zerolog"
 
-	network "github.com/cloudflare/cloudflared/diagnostic/network"
-	"github.com/cloudflare/cloudflared/edgediscovery/allregions"
-	"github.com/cloudflare/cloudflared/prechecks"
+	network "github.com/jpillora/cloudflared/diagnostic/network"
+	"github.com/jpillora/cloudflared/edgediscovery/allregions"
+	"github.com/jpillora/cloudflared/prechecks"
 )
 
 const (

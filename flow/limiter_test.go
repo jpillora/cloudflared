@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/cloudflare/cloudflared/flow"
+	"github.com/jpillora/cloudflared/flow"
 )
 
 func TestFlowLimiter_Unlimited(t *testing.T) {

@@ -17,13 +17,13 @@ import (
 	"github.com/rs/zerolog"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/cloudflare/cloudflared/client"
-	cfdflow "github.com/cloudflare/cloudflared/flow"
+	"github.com/jpillora/cloudflared/client"
+	cfdflow "github.com/jpillora/cloudflared/flow"
 
-	cfdquic "github.com/cloudflare/cloudflared/quic"
-	"github.com/cloudflare/cloudflared/tracing"
-	"github.com/cloudflare/cloudflared/tunnelrpc/pogs"
-	rpcquic "github.com/cloudflare/cloudflared/tunnelrpc/quic"
+	cfdquic "github.com/jpillora/cloudflared/quic"
+	"github.com/jpillora/cloudflared/tracing"
+	"github.com/jpillora/cloudflared/tunnelrpc/pogs"
+	rpcquic "github.com/jpillora/cloudflared/tunnelrpc/quic"
 )
 
 const (

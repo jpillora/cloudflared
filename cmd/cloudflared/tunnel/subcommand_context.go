@@ -14,11 +14,11 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/urfave/cli/v2"
 
-	"github.com/cloudflare/cloudflared/cfapi"
-	cfdflags "github.com/cloudflare/cloudflared/cmd/cloudflared/flags"
-	"github.com/cloudflare/cloudflared/connection"
-	"github.com/cloudflare/cloudflared/credentials"
-	"github.com/cloudflare/cloudflared/logger"
+	"github.com/jpillora/cloudflared/cfapi"
+	cfdflags "github.com/jpillora/cloudflared/cmd/cloudflared/flags"
+	"github.com/jpillora/cloudflared/connection"
+	"github.com/jpillora/cloudflared/credentials"
+	"github.com/jpillora/cloudflared/logger"
 )
 
 const fedRampBaseApiURL = "https://api.fed.cloudflare.com/client/v4"

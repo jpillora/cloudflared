@@ -9,7 +9,7 @@ import (
 	"net/url"
 	"strconv"
 
-	cfdflags "github.com/cloudflare/cloudflared/cmd/cloudflared/flags"
+	cfdflags "github.com/jpillora/cloudflared/cmd/cloudflared/flags"
 )
 
 type httpClient struct {

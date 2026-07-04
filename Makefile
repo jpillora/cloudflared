@@ -33,11 +33,11 @@ endif
 
 VERSION_FLAGS := -X "main.Version=$(VERSION)" -X "main.BuildTime=$(DATE)"
 ifdef PACKAGE_MANAGER
-	VERSION_FLAGS := $(VERSION_FLAGS) -X "github.com/cloudflare/cloudflared/cmd/cloudflared/updater.BuiltForPackageManager=$(PACKAGE_MANAGER)"
+	VERSION_FLAGS := $(VERSION_FLAGS) -X "github.com/jpillora/cloudflared/cmd/cloudflared/updater.BuiltForPackageManager=$(PACKAGE_MANAGER)"
 endif
 
 ifdef CONTAINER_BUILD
-	VERSION_FLAGS := $(VERSION_FLAGS) -X "github.com/cloudflare/cloudflared/metrics.Runtime=virtual"
+	VERSION_FLAGS := $(VERSION_FLAGS) -X "github.com/jpillora/cloudflared/metrics.Runtime=virtual"
 endif
 
 LINK_FLAGS :=
@@ -57,7 +57,7 @@ ifeq ($(debug), 1)
 	GO_BUILD_TAGS += -gcflags="all=-N -l"
 endif
 
-IMPORT_PATH    := github.com/cloudflare/cloudflared
+IMPORT_PATH    := github.com/jpillora/cloudflared
 PACKAGE_DIR    := $(CURDIR)/packaging
 PREFIX         := /usr
 INSTALL_BINDIR := $(PREFIX)/bin/
@@ -255,11 +255,11 @@ capnp:
 
 .PHONY: vet
 vet:
-	$Q go vet -mod=vendor github.com/cloudflare/cloudflared/...
+	$Q go vet -mod=vendor github.com/jpillora/cloudflared/...
 
 .PHONY: fmt
 fmt:
-	@goimports -l -w -local github.com/cloudflare/cloudflared $$(go list -mod=vendor -f '{{.Dir}}' -a ./... | fgrep -v tunnelrpc/proto)
+	@goimports -l -w -local github.com/jpillora/cloudflared $$(go list -mod=vendor -f '{{.Dir}}' -a ./... | fgrep -v tunnelrpc/proto)
 	@go fmt $$(go list -mod=vendor -f '{{.Dir}}' -a ./... | fgrep -v tunnelrpc/proto)
 
 .PHONY: fmt-check

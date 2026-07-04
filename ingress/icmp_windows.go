@@ -25,8 +25,8 @@ import (
 	"golang.org/x/net/ipv4"
 	"golang.org/x/net/ipv6"
 
-	"github.com/cloudflare/cloudflared/packet"
-	"github.com/cloudflare/cloudflared/tracing"
+	"github.com/jpillora/cloudflared/packet"
+	"github.com/jpillora/cloudflared/tracing"
 )
 
 const (

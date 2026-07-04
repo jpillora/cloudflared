@@ -29,19 +29,19 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/nettest"
 
-	"github.com/cloudflare/cloudflared/connection/dialopts"
+	"github.com/jpillora/cloudflared/connection/dialopts"
 
-	"github.com/cloudflare/cloudflared/client"
-	"github.com/cloudflare/cloudflared/config"
-	cfdflow "github.com/cloudflare/cloudflared/flow"
+	"github.com/jpillora/cloudflared/client"
+	"github.com/jpillora/cloudflared/config"
+	cfdflow "github.com/jpillora/cloudflared/flow"
 
-	"github.com/cloudflare/cloudflared/datagramsession"
-	"github.com/cloudflare/cloudflared/ingress"
-	"github.com/cloudflare/cloudflared/packet"
-	cfdquic "github.com/cloudflare/cloudflared/quic"
-	"github.com/cloudflare/cloudflared/tracing"
-	"github.com/cloudflare/cloudflared/tunnelrpc/pogs"
-	rpcquic "github.com/cloudflare/cloudflared/tunnelrpc/quic"
+	"github.com/jpillora/cloudflared/datagramsession"
+	"github.com/jpillora/cloudflared/ingress"
+	"github.com/jpillora/cloudflared/packet"
+	cfdquic "github.com/jpillora/cloudflared/quic"
+	"github.com/jpillora/cloudflared/tracing"
+	"github.com/jpillora/cloudflared/tunnelrpc/pogs"
+	rpcquic "github.com/jpillora/cloudflared/tunnelrpc/quic"
 )
 
 var (

@@ -1,6 +1,6 @@
 package ingress
 
-import "github.com/cloudflare/cloudflared/logger"
+import "github.com/jpillora/cloudflared/logger"
 
 var (
 	TestLogger = logger.Create(nil)

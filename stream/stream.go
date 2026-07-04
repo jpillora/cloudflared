@@ -12,7 +12,7 @@ import (
 	"github.com/getsentry/sentry-go"
 	"github.com/rs/zerolog"
 
-	"github.com/cloudflare/cloudflared/cfio"
+	"github.com/jpillora/cloudflared/cfio"
 )
 
 // DefaultTimeoutAfterFirstClose controls the upper bound of how long we wait for the second stream to finish.

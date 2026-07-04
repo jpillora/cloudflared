@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cloudflare/cloudflared/cfapi"
-	"github.com/cloudflare/cloudflared/connection"
+	"github.com/jpillora/cloudflared/cfapi"
+	"github.com/jpillora/cloudflared/connection"
 )
 
 func Test_fmtConnections(t *testing.T) {

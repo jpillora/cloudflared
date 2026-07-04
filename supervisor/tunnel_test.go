@@ -9,9 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cloudflare/cloudflared/connection"
-	"github.com/cloudflare/cloudflared/edgediscovery"
-	"github.com/cloudflare/cloudflared/retry"
+	"github.com/jpillora/cloudflared/connection"
+	"github.com/jpillora/cloudflared/edgediscovery"
+	"github.com/jpillora/cloudflared/retry"
 )
 
 type dynamicMockFetcher struct {

@@ -13,9 +13,9 @@ import (
 	"github.com/urfave/cli/v2"
 	"golang.org/x/net/idna"
 
-	"github.com/cloudflare/cloudflared/config"
-	"github.com/cloudflare/cloudflared/ingress/middleware"
-	"github.com/cloudflare/cloudflared/ipaccess"
+	"github.com/jpillora/cloudflared/config"
+	"github.com/jpillora/cloudflared/ingress/middleware"
+	"github.com/jpillora/cloudflared/ipaccess"
 )
 
 var (

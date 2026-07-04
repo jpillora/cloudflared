@@ -3,8 +3,8 @@ package orchestration
 import (
 	"encoding/json"
 
-	"github.com/cloudflare/cloudflared/config"
-	"github.com/cloudflare/cloudflared/ingress"
+	"github.com/jpillora/cloudflared/config"
+	"github.com/jpillora/cloudflared/ingress"
 )
 
 type newRemoteConfig struct {

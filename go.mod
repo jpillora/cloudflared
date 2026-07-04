@@ -1,4 +1,4 @@
-module github.com/cloudflare/cloudflared
+module github.com/jpillora/cloudflared
 
 go 1.26
 

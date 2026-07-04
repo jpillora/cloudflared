@@ -1,6 +1,6 @@
 package v3_test
 
-import v3 "github.com/cloudflare/cloudflared/quic/v3"
+import v3 "github.com/jpillora/cloudflared/quic/v3"
 
 type noopMetrics struct{}
 

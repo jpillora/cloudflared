@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/cloudflare/cloudflared/packet"
+	"github.com/jpillora/cloudflared/packet"
 )
 
 func TestSingleEchoIDTracker(t *testing.T) {

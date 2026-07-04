@@ -12,9 +12,9 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/urfave/cli/v2"
 
-	"github.com/cloudflare/cloudflared/cmd/cloudflared/cliutil"
-	cfdflags "github.com/cloudflare/cloudflared/cmd/cloudflared/flags"
-	"github.com/cloudflare/cloudflared/connection"
+	"github.com/jpillora/cloudflared/cmd/cloudflared/cliutil"
+	cfdflags "github.com/jpillora/cloudflared/cmd/cloudflared/flags"
+	"github.com/jpillora/cloudflared/connection"
 )
 
 // defaultQuickService is the trycloudflare endpoint that allocates account-less

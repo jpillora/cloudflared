@@ -14,16 +14,16 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/errgroup"
 
-	cfdflow "github.com/cloudflare/cloudflared/flow"
+	cfdflow "github.com/jpillora/cloudflared/flow"
 
-	"github.com/cloudflare/cloudflared/datagramsession"
-	"github.com/cloudflare/cloudflared/ingress"
-	"github.com/cloudflare/cloudflared/management"
-	"github.com/cloudflare/cloudflared/packet"
-	cfdquic "github.com/cloudflare/cloudflared/quic"
-	"github.com/cloudflare/cloudflared/tracing"
-	"github.com/cloudflare/cloudflared/tunnelrpc/pogs"
-	rpcquic "github.com/cloudflare/cloudflared/tunnelrpc/quic"
+	"github.com/jpillora/cloudflared/datagramsession"
+	"github.com/jpillora/cloudflared/ingress"
+	"github.com/jpillora/cloudflared/management"
+	"github.com/jpillora/cloudflared/packet"
+	cfdquic "github.com/jpillora/cloudflared/quic"
+	"github.com/jpillora/cloudflared/tracing"
+	"github.com/jpillora/cloudflared/tunnelrpc/pogs"
+	rpcquic "github.com/jpillora/cloudflared/tunnelrpc/quic"
 )
 
 const (

@@ -8,7 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
-	"github.com/cloudflare/cloudflared/packet"
+	"github.com/jpillora/cloudflared/packet"
 )
 
 const (

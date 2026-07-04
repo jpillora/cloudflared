@@ -7,7 +7,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/cloudflare/cloudflared/edgediscovery/allregions"
+	"github.com/jpillora/cloudflared/edgediscovery/allregions"
 )
 
 var (

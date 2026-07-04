@@ -23,15 +23,15 @@ import (
 	"golang.org/x/net/idna"
 	"gopkg.in/yaml.v3"
 
-	"github.com/cloudflare/cloudflared/cfapi"
-	"github.com/cloudflare/cloudflared/cmd/cloudflared/cliutil"
-	"github.com/cloudflare/cloudflared/cmd/cloudflared/flags"
-	"github.com/cloudflare/cloudflared/cmd/cloudflared/updater"
-	"github.com/cloudflare/cloudflared/config"
-	"github.com/cloudflare/cloudflared/connection"
-	"github.com/cloudflare/cloudflared/diagnostic"
-	"github.com/cloudflare/cloudflared/fips"
-	"github.com/cloudflare/cloudflared/metrics"
+	"github.com/jpillora/cloudflared/cfapi"
+	"github.com/jpillora/cloudflared/cmd/cloudflared/cliutil"
+	"github.com/jpillora/cloudflared/cmd/cloudflared/flags"
+	"github.com/jpillora/cloudflared/cmd/cloudflared/updater"
+	"github.com/jpillora/cloudflared/config"
+	"github.com/jpillora/cloudflared/connection"
+	"github.com/jpillora/cloudflared/diagnostic"
+	"github.com/jpillora/cloudflared/fips"
+	"github.com/jpillora/cloudflared/metrics"
 )
 
 const (

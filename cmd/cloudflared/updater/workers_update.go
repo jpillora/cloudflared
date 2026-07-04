@@ -18,7 +18,7 @@ import (
 
 	"github.com/getsentry/sentry-go"
 
-	"github.com/cloudflare/cloudflared/cmd/cloudflared/cliutil"
+	"github.com/jpillora/cloudflared/cmd/cloudflared/cliutil"
 )
 
 const (

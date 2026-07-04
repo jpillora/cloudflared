@@ -12,13 +12,13 @@ import (
 	"github.com/quic-go/quic-go"
 	"github.com/rs/zerolog"
 
-	"github.com/cloudflare/cloudflared/connection/dialopts"
+	"github.com/jpillora/cloudflared/connection/dialopts"
 
-	"github.com/cloudflare/cloudflared/connection"
-	edgedial "github.com/cloudflare/cloudflared/edgediscovery"
-	"github.com/cloudflare/cloudflared/edgediscovery/allregions"
-	cfdquic "github.com/cloudflare/cloudflared/quic"
-	"github.com/cloudflare/cloudflared/tlsconfig"
+	"github.com/jpillora/cloudflared/connection"
+	edgedial "github.com/jpillora/cloudflared/edgediscovery"
+	"github.com/jpillora/cloudflared/edgediscovery/allregions"
+	cfdquic "github.com/jpillora/cloudflared/quic"
+	"github.com/jpillora/cloudflared/tlsconfig"
 )
 
 const (

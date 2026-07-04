@@ -8,9 +8,9 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/cloudflare/cloudflared/management"
-	"github.com/cloudflare/cloudflared/tunnelrpc"
-	"github.com/cloudflare/cloudflared/tunnelrpc/pogs"
+	"github.com/jpillora/cloudflared/management"
+	"github.com/jpillora/cloudflared/tunnelrpc"
+	"github.com/jpillora/cloudflared/tunnelrpc/pogs"
 )
 
 // registerClient derives a named tunnel rpc client that can then be used to register and unregister connections.

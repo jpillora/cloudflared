@@ -11,9 +11,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
-	"github.com/cloudflare/cloudflared/cmd/cloudflared/cliutil"
-	"github.com/cloudflare/cloudflared/cmd/cloudflared/flags"
-	"github.com/cloudflare/cloudflared/connection"
+	"github.com/jpillora/cloudflared/cmd/cloudflared/cliutil"
+	"github.com/jpillora/cloudflared/cmd/cloudflared/flags"
+	"github.com/jpillora/cloudflared/connection"
 )
 
 const httpTimeout = 15 * time.Second

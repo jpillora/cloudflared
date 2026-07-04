@@ -19,14 +19,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cloudflare/cloudflared/cmd/cloudflared/flags"
+	"github.com/jpillora/cloudflared/cmd/cloudflared/flags"
 
-	"github.com/cloudflare/cloudflared/config"
-	"github.com/cloudflare/cloudflared/connection"
-	"github.com/cloudflare/cloudflared/ingress"
-	"github.com/cloudflare/cloudflared/management"
-	"github.com/cloudflare/cloudflared/tracing"
-	"github.com/cloudflare/cloudflared/tunnelrpc/pogs"
+	"github.com/jpillora/cloudflared/config"
+	"github.com/jpillora/cloudflared/connection"
+	"github.com/jpillora/cloudflared/ingress"
+	"github.com/jpillora/cloudflared/management"
+	"github.com/jpillora/cloudflared/tracing"
+	"github.com/jpillora/cloudflared/tunnelrpc/pogs"
 )
 
 var (

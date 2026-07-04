@@ -13,7 +13,7 @@ import (
 	"github.com/fortytw2/leaktest"
 	"github.com/rs/zerolog"
 
-	v3 "github.com/cloudflare/cloudflared/quic/v3"
+	v3 "github.com/jpillora/cloudflared/quic/v3"
 )
 
 var (

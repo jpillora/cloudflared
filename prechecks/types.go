@@ -5,8 +5,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/cloudflare/cloudflared/connection"
-	"github.com/cloudflare/cloudflared/edgediscovery/allregions"
+	"github.com/jpillora/cloudflared/connection"
+	"github.com/jpillora/cloudflared/edgediscovery/allregions"
 )
 
 // Status represents the outcome of a single connectivity pre-check.

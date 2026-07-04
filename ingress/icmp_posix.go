@@ -14,7 +14,7 @@ import (
 	"github.com/rs/zerolog"
 	"golang.org/x/net/icmp"
 
-	"github.com/cloudflare/cloudflared/packet"
+	"github.com/jpillora/cloudflared/packet"
 )
 
 // Opens a non-privileged ICMP socket on Linux and Darwin

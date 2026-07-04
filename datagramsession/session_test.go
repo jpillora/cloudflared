@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/cloudflare/cloudflared/packet"
+	"github.com/jpillora/cloudflared/packet"
 )
 
 // TestCloseSession makes sure a session will stop after context is done

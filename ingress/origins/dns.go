@@ -12,7 +12,7 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/cloudflare/cloudflared/ingress"
+	"github.com/jpillora/cloudflared/ingress"
 )
 
 const (

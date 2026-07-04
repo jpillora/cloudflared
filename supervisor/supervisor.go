@@ -11,13 +11,13 @@ import (
 	"github.com/quic-go/quic-go"
 	"github.com/rs/zerolog"
 
-	"github.com/cloudflare/cloudflared/connection"
-	"github.com/cloudflare/cloudflared/edgediscovery"
-	"github.com/cloudflare/cloudflared/orchestration"
-	v3 "github.com/cloudflare/cloudflared/quic/v3"
-	"github.com/cloudflare/cloudflared/retry"
-	"github.com/cloudflare/cloudflared/signal"
-	"github.com/cloudflare/cloudflared/tunnelstate"
+	"github.com/jpillora/cloudflared/connection"
+	"github.com/jpillora/cloudflared/edgediscovery"
+	"github.com/jpillora/cloudflared/orchestration"
+	v3 "github.com/jpillora/cloudflared/quic/v3"
+	"github.com/jpillora/cloudflared/retry"
+	"github.com/jpillora/cloudflared/signal"
+	"github.com/jpillora/cloudflared/tunnelstate"
 )
 
 const (

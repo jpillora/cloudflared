@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/cloudflare/cloudflared/cfapi"
+	"github.com/jpillora/cloudflared/cfapi"
 )
 
 type Info struct {

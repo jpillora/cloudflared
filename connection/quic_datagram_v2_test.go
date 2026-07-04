@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
-	cfdflow "github.com/cloudflare/cloudflared/flow"
-	"github.com/cloudflare/cloudflared/mocks"
+	cfdflow "github.com/jpillora/cloudflared/flow"
+	"github.com/jpillora/cloudflared/mocks"
 )
 
 func TestRateLimitOnNewDatagramV2UDPSession(t *testing.T) {

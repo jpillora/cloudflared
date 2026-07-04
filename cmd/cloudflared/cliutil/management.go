@@ -12,9 +12,9 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/urfave/cli/v2"
 
-	"github.com/cloudflare/cloudflared/cfapi"
-	cfdflags "github.com/cloudflare/cloudflared/cmd/cloudflared/flags"
-	"github.com/cloudflare/cloudflared/credentials"
+	"github.com/jpillora/cloudflared/cfapi"
+	cfdflags "github.com/jpillora/cloudflared/cmd/cloudflared/flags"
+	"github.com/jpillora/cloudflared/credentials"
 )
 
 // Error definitions for management token operations
