@@ -47,15 +47,15 @@ The public entrypoint, in `package tunnel` so it can reach the package's unexpor
 (`tunnelFlags`, `buildRunCommand`, `ParseToken`, `StartServer`, `Init`, `httpTimeout`,
 `QuickTunnelResponse`).
 
-The API is **instance-based** — no package-level/global entrypoints. Create a `Tunnel`, configure
-it, then run or listen; shutdown is entirely `ctx`-driven (cancel the context passed to
-`Run`/`Listen`).
+The API is **instance-based** and **Listen-only** — no package-level/global entrypoints, and the
+host always serves an in-process `http.Handler` (there is no TCP-origin proxying mode). Create a
+`Tunnel` with options, then `Listen`; shutdown is entirely `ctx`-driven (cancel the context passed
+to `Listen`, or close the listener).
 
 ```go
 // Config configures an in-process cloudflared Tunnel — the programmatic
 // equivalent of the flags a `cloudflared tunnel run` invocation would parse.
 type Config struct {
-    OriginURL       string                   // local service to proxy to, e.g. "http://127.0.0.1:7247" or "unix:/path.sock"
     Token           string                   // named tunnel token; empty => account-less quick tunnel
     QuickServiceURL string                   // default "https://api.trycloudflare.com"
     Logger          *zerolog.Logger          // required
@@ -68,9 +68,7 @@ type Config struct {
 // instance per run.
 type Tunnel struct { /* unexported */ }
 
-func New() *Tunnel                                  // unconfigured tunnel
-func (t *Tunnel) Configure(c Config) *Tunnel        // set config; returns t for chaining
-func (t *Tunnel) Run(ctx context.Context) error     // blocks until ctx canceled or fatal error
+func New(c Config) *Tunnel                                          // tunnel configured with c
 func (t *Tunnel) Listen(ctx context.Context) (net.Listener, error) // returns a listener; tunnel connects in background
 
 // ClientIPMiddleware rewrites r.RemoteAddr from Cloudflare's Cf-Connecting-Ip
@@ -80,10 +78,9 @@ func (t *Tunnel) Listen(ctx context.Context) (net.Listener, error) // returns a 
 func ClientIPMiddleware(next http.Handler) http.Handler
 ```
 
-Usage: `t := tunnel.New().Configure(tunnel.Config{...})`, then either `t.Run(ctx)` (proxy to
-`Config.OriginURL`, blocking) or `ln, _ := t.Listen(ctx); http.Serve(ln, tunnel.ClientIPMiddleware(h))`
-(serve an in-process handler; `Config.OriginURL` is ignored — `Listen` owns a private unix-socket
-origin, so no OS TCP port is bound and the listener *is* the tunnel).
+Usage: `ln, _ := tunnel.New(tunnel.Config{...}).Listen(ctx)`, then
+`http.Serve(ln, tunnel.ClientIPMiddleware(h))`. `Listen` owns a private unix-socket origin, so no OS
+TCP port is bound and the listener *is* the tunnel.
 
 What it does:
 - Calls `makeMultiInstanceSafe(info)` (once per process, via `sync.Once`, embedded path only) to:
@@ -102,8 +99,8 @@ What it does:
     metrics are never automatic.
 - Builds a `*cli.Context` by `.Apply`-ing cloudflared's own `tunnelFlags(false)` +
   `buildRunCommand().Flags` onto a `flag.FlagSet` (so **all upstream flag defaults are preserved**),
-  then overrides only `url`, `protocol=quic`, `ha-connections=1`, `no-autoupdate=true`,
-  `quick-service`, and (named) `token`. Sets `c.Context = ctx`.
+  then overrides only `unix-socket` (Listen's private origin), `protocol=quic`, `ha-connections=1`,
+  `no-autoupdate=true`, `quick-service`, and (named) `token`. Sets `c.Context = ctx`.
 - **Quick mode** (`Token == ""`): POSTs `"<QuickServiceURL>/tunnel"` (mirroring upstream
   `RunQuickTunnel`), reads `QuickTunnelResponse`; the public hostname is `Result.Hostname`
   (known synchronously) and the credentials come from the same response. Then calls
@@ -112,10 +109,9 @@ What it does:
   The public hostname is **not** in the token (it's whatever the user routed in the Cloudflare
   dashboard), so the host supplies it separately for display.
 
-`Tunnel.Listen` wraps this for the common "serve an in-process handler" case: it creates a private
-unix-socket origin (`OriginURL = "unix:<tmp>/origin.sock"`, routed to cloudflared's `--unix-socket`
-flag — `--url` only understands TCP/HTTP schemes), runs the tunnel in a goroutine, and returns
-the socket's `net.Listener`. `http.Serve(ln, tunnel.ClientIPMiddleware(handler))` then serves
+`Tunnel.Listen` drives all of this: it creates a private unix-socket origin
+(`<tmp>/origin.sock`, routed to cloudflared's `--unix-socket` flag), runs the tunnel in a goroutine,
+and returns the socket's `net.Listener`. `http.Serve(ln, tunnel.ClientIPMiddleware(handler))` then serves
 straight off the tunnel with **no OS TCP port**; closing the listener (or canceling ctx) tears the
 tunnel down. `ClientIPMiddleware` restores the real client IP into `r.RemoteAddr` from the
 `Cf-Connecting-Ip` header (otherwise the handler sees the origin unix socket's address).
@@ -183,9 +179,7 @@ before the event) and harmless to the CLI.
 A ~40-line `main` that serves a directory over a quick tunnel with **no TCP port bound**:
 
 ```go
-ln, _ := tunnel.New().
-    Configure(tunnel.Config{Logger: &log, Sink: sink, Version: "fileserver-example"}).
-    Listen(ctx)
+ln, _ := tunnel.New(tunnel.Config{Logger: &log, Sink: sink, Version: "fileserver-example"}).Listen(ctx)
 defer ln.Close()
 http.Serve(ln, tunnel.ClientIPMiddleware(http.FileServer(http.Dir(dir)))) // ln is the tunnel
 ```
@@ -208,9 +202,9 @@ This is how a host surfaces live tunnel status without parsing logs.
 
 ## Lifecycle & shutdown
 
-- `Tunnel.Run` blocks until `ctx` is canceled or a fatal error occurs (`Tunnel.Listen` returns
-  immediately and runs the tunnel in the background).
-- Cancel the `ctx` you passed in to stop the tunnel. `StartServer` derives its server context from
+- `Tunnel.Listen` returns immediately and runs the tunnel in the background until `ctx` is canceled
+  or a fatal error occurs (which closes the returned listener).
+- Cancel the `ctx` you passed in (or close the listener) to stop the tunnel. `StartServer` derives its server context from
   `c.Context`; canceling it stops the supervisor, which returns through the internal `errC`, and
   `waitToShutdown` unblocks on that. (The graceful `graceShutdownC` path is unused when embedded —
   we hand `Init` a fresh channel that is never closed.)
@@ -259,21 +253,18 @@ sink := connection.EventSinkFunc(func(e connection.Event) {
     }
 })
 
-err := tunnel.New().Configure(tunnel.Config{
-    OriginURL: "http://127.0.0.1:7247", // the local service to expose
-    // Token:  "<base64 CF tunnel token>", // omit for a quick tunnel
+ln, err := tunnel.New(tunnel.Config{
+    // Token: "<base64 CF tunnel token>", // omit for a quick tunnel
     Logger:  &logger,
     Sink:    sink,
     Version: "myapp",
-}).Run(ctx)
-```
+}).Listen(ctx)
+if err != nil { /* ... */ }
+defer ln.Close()
 
-To serve an in-process handler instead (no local origin, no OS TCP port), use `Listen`:
-
-```go
-ln, err := tunnel.New().Configure(tunnel.Config{Logger: &logger, Sink: sink}).Listen(ctx)
-// ...
-http.Serve(ln, tunnel.ClientIPMiddleware(myHandler)) // RemoteAddr = real client IP
+// ln is backed by the Cloudflare edge, not an OS TCP port. Serve any handler;
+// ClientIPMiddleware restores the real client IP into r.RemoteAddr.
+http.Serve(ln, tunnel.ClientIPMiddleware(myHandler))
 ```
 
 ## Validation
