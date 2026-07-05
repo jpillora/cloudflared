@@ -3,6 +3,7 @@ package tunnel
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -14,6 +15,7 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog"
 	"github.com/urfave/cli/v2"
 
@@ -76,6 +78,74 @@ func withEmbedded(sink connection.EventSinkFunc, metricsAddr string) EmbedServer
 	}
 }
 
+// embedOnce guards the one-time, process-wide setup embedded tunnels need.
+var embedOnce sync.Once
+
+// makeMultiInstanceSafe prepares the host process so that concurrent
+// RunEmbedded/Listen calls are safe. It runs exactly once per process and only
+// from the embedded path, so CLI behaviour is never affected. It addresses two
+// cloudflared globals that are otherwise unsafe to share across tunnels:
+//
+//   - Init populates the buildInfo/graceShutdownC package globals normally set
+//     by the CLI entrypoint (StartServer reads buildInfo for diagnostics;
+//     graceShutdownC feeds the signal trap the embedded path skips). buildInfo
+//     is effectively constant and graceShutdownC is unused when embedded, so
+//     first-writer-wins is fine — the Once only removes the data race.
+//
+//   - Metrics are made strictly opt-in. cloudflared hardcodes metric
+//     registration onto the process-global prometheus.DefaultRegisterer, once
+//     per tunnel (e.g. supervisor's v3.NewMetrics). Left as-is that both
+//     registers cloudflared's metrics on the host's default registry as an
+//     automatic side effect of embedding AND panics on the second concurrent
+//     tunnel ("duplicate metrics collector registration attempted"), because a
+//     registry rejects duplicate collectors. We redirect DefaultRegisterer — and
+//     its paired DefaultGatherer — to a private, duplicate-tolerant registry:
+//     nothing lands on the host's real default registry, concurrent tunnels no
+//     longer panic, and the opt-in metrics server (EmbedOptions.MetricsAddr)
+//     still exposes cloudflared's metrics because promhttp.Handler() serves
+//     DefaultGatherer. With MetricsAddr empty (the default) no metrics server
+//     runs and nothing is registered or exposed — metrics are never automatic.
+func makeMultiInstanceSafe(info *cliutil.BuildInfo) {
+	embedOnce.Do(func() {
+		Init(info, make(chan struct{}))
+		reg := prometheus.NewRegistry()
+		prometheus.DefaultRegisterer = dedupeRegisterer{Registerer: reg}
+		prometheus.DefaultGatherer = reg
+	})
+}
+
+// dedupeRegisterer wraps a prometheus.Registerer and turns duplicate collector
+// registrations into no-ops instead of errors. cloudflared registers the same
+// collectors once per tunnel; without this the second concurrent embedded
+// tunnel panics with "duplicate metrics collector registration attempted". The
+// first registration wins and stays live; later duplicates are silently
+// accepted.
+type dedupeRegisterer struct {
+	prometheus.Registerer
+}
+
+func (d dedupeRegisterer) Register(c prometheus.Collector) error {
+	err := d.Registerer.Register(c)
+	if err != nil {
+		var already prometheus.AlreadyRegisteredError
+		if errors.As(err, &already) {
+			return nil
+		}
+	}
+	return err
+}
+
+// MustRegister is overridden (not inherited) so it routes through this type's
+// dup-swallowing Register; the promoted method would call the embedded
+// registerer's Register and panic on duplicates.
+func (d dedupeRegisterer) MustRegister(cs ...prometheus.Collector) {
+	for _, c := range cs {
+		if err := d.Register(c); err != nil {
+			panic(err)
+		}
+	}
+}
+
 // RunEmbedded runs a cloudflared tunnel in-process. It blocks until ctx is
 // canceled or a fatal error occurs, and never traps host process signals —
 // lifecycle is entirely ctx-driven. For quick tunnels the public URL is
@@ -88,11 +158,10 @@ func RunEmbedded(ctx context.Context, o EmbedOptions) error {
 		o.QuickServiceURL = defaultQuickService
 	}
 	info := cliutil.GetBuildInfo("embedded", o.Version)
-	// Populate cloudflared's package-level globals (buildInfo, graceShutdownC)
-	// normally set by the CLI entrypoint. StartServer reads the buildInfo global
-	// for diagnostics; graceShutdownC is only consumed by the signal trap, which
-	// the embedded path skips.
-	Init(info, make(chan struct{}))
+	// Prepare the process for embedded, multi-instance use (idempotent): populate
+	// cloudflared's CLI globals and redirect its metric registration off the
+	// host's default prometheus registry. See makeMultiInstanceSafe.
+	makeMultiInstanceSafe(info)
 	c, err := o.buildContext(ctx, info)
 	if err != nil {
 		return err
