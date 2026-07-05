@@ -33,7 +33,7 @@ scraping logs.
    is entirely `context.Context`-driven.
 3. **Observable without log scraping.** Status (URL, connected, disconnected) is delivered through
    cloudflared's existing `connection.Observer` event sink.
-4. **Multi-instance safe.** Any number of `RunEmbedded`/`Listen` calls may run concurrently in one
+4. **Multi-instance safe.** Any number of `Tunnel` instances may `Run`/`Listen` concurrently in one
    process. cloudflared's per-tunnel metric registration is redirected off the host's default
    prometheus registry (so it neither collides nor registers anything automatically — metrics are
    opt-in via `MetricsAddr`), and the event-sink dispatch race that dropped quick-tunnel URLs under
@@ -47,10 +47,14 @@ The public entrypoint, in `package tunnel` so it can reach the package's unexpor
 (`tunnelFlags`, `buildRunCommand`, `ParseToken`, `StartServer`, `Init`, `httpTimeout`,
 `QuickTunnelResponse`).
 
+The API is **instance-based** — no package-level/global entrypoints. Create a `Tunnel`, configure
+it, then run or listen; shutdown is entirely `ctx`-driven (cancel the context passed to
+`Run`/`Listen`).
+
 ```go
-// EmbedOptions configures an in-process cloudflared tunnel — the programmatic
+// Config configures an in-process cloudflared Tunnel — the programmatic
 // equivalent of the flags a `cloudflared tunnel run` invocation would parse.
-type EmbedOptions struct {
+type Config struct {
     OriginURL       string                   // local service to proxy to, e.g. "http://127.0.0.1:7247" or "unix:/path.sock"
     Token           string                   // named tunnel token; empty => account-less quick tunnel
     QuickServiceURL string                   // default "https://api.trycloudflare.com"
@@ -60,23 +64,33 @@ type EmbedOptions struct {
     MetricsAddr     string                   // opt-in: run metrics/diagnostics here; empty => no OS TCP listener
 }
 
-// RunEmbedded runs a cloudflared tunnel in-process. It blocks until ctx is
-// canceled or a fatal error occurs, and never traps host process signals.
-func RunEmbedded(ctx context.Context, o EmbedOptions) error
+// Tunnel is a single in-process cloudflared tunnel. One-shot: use a fresh
+// instance per run.
+type Tunnel struct { /* unexported */ }
 
-// Listen starts an in-process tunnel and returns a net.Listener whose
-// connections arrive from the public Cloudflare edge — hand it to http.Serve.
-// No OS TCP port is bound: the origin is a private unix socket backing the
-// listener, so the listener *is* the tunnel. o.OriginURL is ignored.
-func Listen(ctx context.Context, o EmbedOptions) (net.Listener, error)
+func New() *Tunnel                                  // unconfigured tunnel
+func (t *Tunnel) Configure(c Config) *Tunnel        // set config; returns t for chaining
+func (t *Tunnel) Run(ctx context.Context) error     // blocks until ctx canceled or fatal error
+func (t *Tunnel) Listen(ctx context.Context) (net.Listener, error) // returns a listener; tunnel connects in background
+
+// ClientIPMiddleware rewrites r.RemoteAddr from Cloudflare's Cf-Connecting-Ip
+// header (the real client IP) — a handler served over a Listen listener
+// otherwise sees the origin unix socket's meaningless RemoteAddr. The Cloudflare
+// analog of tailscale's WhoIsMiddleware.
+func ClientIPMiddleware(next http.Handler) http.Handler
 ```
+
+Usage: `t := tunnel.New().Configure(tunnel.Config{...})`, then either `t.Run(ctx)` (proxy to
+`Config.OriginURL`, blocking) or `ln, _ := t.Listen(ctx); http.Serve(ln, tunnel.ClientIPMiddleware(h))`
+(serve an in-process handler; `Config.OriginURL` is ignored — `Listen` owns a private unix-socket
+origin, so no OS TCP port is bound and the listener *is* the tunnel).
 
 What it does:
 - Calls `makeMultiInstanceSafe(info)` (once per process, via `sync.Once`, embedded path only) to:
   - `Init(info, make(chan struct{}))` — populate cloudflared's package globals `buildInfo` and
     `graceShutdownC` (normally set by the CLI entrypoint). **Required** — without it `StartServer`
     nil-derefs at the diagnostic collector (`cmd.go`, `buildInfo.CloudflaredVersion`). The `Once`
-    also removes the data race concurrent `RunEmbedded` calls would otherwise have on these globals.
+    also removes the data race concurrent `Run`/`Listen` calls would otherwise have on these globals.
   - Redirect `prometheus.DefaultRegisterer`/`DefaultGatherer` to a **private, duplicate-tolerant
     registry**. cloudflared hardcodes metric registration onto the process-global default registry
     *per tunnel* (e.g. `supervisor.NewSupervisor` → `v3.NewMetrics`), which without this both
@@ -98,11 +112,13 @@ What it does:
   The public hostname is **not** in the token (it's whatever the user routed in the Cloudflare
   dashboard), so the host supplies it separately for display.
 
-`Listen` wraps this for the common "serve an in-process handler" case: it creates a private
+`Tunnel.Listen` wraps this for the common "serve an in-process handler" case: it creates a private
 unix-socket origin (`OriginURL = "unix:<tmp>/origin.sock"`, routed to cloudflared's `--unix-socket`
-flag — `--url` only understands TCP/HTTP schemes), runs `RunEmbedded` in a goroutine, and returns
-the socket's `net.Listener`. `http.Serve(ln, handler)` then serves straight off the tunnel with
-**no OS TCP port**; closing the listener (or canceling ctx) tears the tunnel down.
+flag — `--url` only understands TCP/HTTP schemes), runs the tunnel in a goroutine, and returns
+the socket's `net.Listener`. `http.Serve(ln, tunnel.ClientIPMiddleware(handler))` then serves
+straight off the tunnel with **no OS TCP port**; closing the listener (or canceling ctx) tears the
+tunnel down. `ClientIPMiddleware` restores the real client IP into `r.RemoteAddr` from the
+`Cf-Connecting-Ip` header (otherwise the handler sees the origin unix socket's address).
 
 It also defines the option plumbing consumed by the `StartServer` guards:
 
@@ -137,7 +153,7 @@ When `emb.embedded` is set, these are skipped (host owns the process):
 - `go notifySystemd(connectedSignal)`
 - the `updater.NewAutoUpdater(...).Run(ctx)` goroutine (and its `wg.Add(1)`)
 - the metrics/readiness/diagnostic HTTP server (`metrics.CreateMetricsListener` + `ServeMetrics`) —
-  it binds an OS TCP listener, so embedded it is **opt-in** via `EmbedOptions.MetricsAddr`. Empty
+  it binds an OS TCP listener, so embedded it is **opt-in** via `Config.MetricsAddr`. Empty
   (default) => no metrics server, no TCP listener. The guard is `if !emb.embedded || emb.metricsAddr != ""`.
 
 And when a sink is provided, it is registered right after the observer is created:
@@ -167,16 +183,18 @@ before the event) and harmless to the CLI.
 A ~40-line `main` that serves a directory over a quick tunnel with **no TCP port bound**:
 
 ```go
-ln, _ := tunnel.Listen(ctx, tunnel.EmbedOptions{Logger: &log, Sink: sink, Version: "fileserver-example"})
+ln, _ := tunnel.New().
+    Configure(tunnel.Config{Logger: &log, Sink: sink, Version: "fileserver-example"}).
+    Listen(ctx)
 defer ln.Close()
-http.Serve(ln, http.FileServer(http.Dir(dir)))   // ln is the tunnel, not an OS TCP socket
+http.Serve(ln, tunnel.ClientIPMiddleware(http.FileServer(http.Dir(dir)))) // ln is the tunnel
 ```
 
 Run `go run ./embed/examples/fileserver [dir]`, then open the printed
 `https://<random>.trycloudflare.com` URL. Verified on the dev box: the handler serves over the
-unix-socket origin (`curl --unix-socket …/origin.sock` returns the file), the tunnel registers at
-the edge (`location=cbr01`), and the process opens **zero** TCP listeners (`ss -lntp` shows none;
-metrics stays off unless `MetricsAddr` is set).
+unix-socket origin, the tunnel registers at the edge, `r.RemoteAddr` is the real client IP (via
+`ClientIPMiddleware`), and the process opens **zero** TCP listeners (`ss -lntp` shows none; metrics
+stay off unless `MetricsAddr` is set).
 
 ## Status events
 
@@ -190,7 +208,8 @@ This is how a host surfaces live tunnel status without parsing logs.
 
 ## Lifecycle & shutdown
 
-- `RunEmbedded` blocks until `ctx` is canceled or a fatal error occurs.
+- `Tunnel.Run` blocks until `ctx` is canceled or a fatal error occurs (`Tunnel.Listen` returns
+  immediately and runs the tunnel in the background).
 - Cancel the `ctx` you passed in to stop the tunnel. `StartServer` derives its server context from
   `c.Context`; canceling it stops the supervisor, which returns through the internal `errC`, and
   `waitToShutdown` unblocks on that. (The graceful `graceShutdownC` path is unused when embedded —
@@ -240,13 +259,21 @@ sink := connection.EventSinkFunc(func(e connection.Event) {
     }
 })
 
-err := tunnel.RunEmbedded(ctx, tunnel.EmbedOptions{
+err := tunnel.New().Configure(tunnel.Config{
     OriginURL: "http://127.0.0.1:7247", // the local service to expose
     // Token:  "<base64 CF tunnel token>", // omit for a quick tunnel
     Logger:  &logger,
     Sink:    sink,
     Version: "myapp",
-})
+}).Run(ctx)
+```
+
+To serve an in-process handler instead (no local origin, no OS TCP port), use `Listen`:
+
+```go
+ln, err := tunnel.New().Configure(tunnel.Config{Logger: &logger, Sink: sink}).Listen(ctx)
+// ...
+http.Serve(ln, tunnel.ClientIPMiddleware(myHandler)) // RemoteAddr = real client IP
 ```
 
 ## Validation
@@ -254,10 +281,10 @@ err := tunnel.RunEmbedded(ctx, tunnel.EmbedOptions{
 Proven end-to-end with a standalone module (`/tmp/cfembed-smoke` on the dev box: a `go.mod` with
 the replace set above + a ~40-line `main.go`). It:
 1. started a local HTTP origin,
-2. called `RunEmbedded` in quick mode,
+2. ran a `Tunnel` in quick mode,
 3. received `SetURL` (`<random>.trycloudflare.com`) then `Connected` (edge `cbr01`),
 4. fetched `https://<random>.trycloudflare.com` → **200**, body proxied from the local origin,
-5. canceled the context → clean shutdown, `RunEmbedded` returned `nil`, `Disconnected` fired.
+5. canceled the context → clean shutdown, `Run` returned `nil`, `Disconnected` fired.
 
 The standalone binary was ~36 MB (a marker for the dependency weight embedding adds).
 
@@ -295,7 +322,7 @@ or the `connection.Observer` sink API, update `embed.go` to match. Also re-copy 
   run — fine for dev/experimentation, not production. Named tunnels (token) give a stable
   hostname.
 - **prometheus:** embedded tunnels do **not** touch the host's default prometheus registry.
-  `makeMultiInstanceSafe` (first `RunEmbedded`/`Listen` call) redirects
+  `makeMultiInstanceSafe` (first `Run`/`Listen` call) redirects
   `prometheus.DefaultRegisterer`/`DefaultGatherer` to a private, duplicate-tolerant registry, so
   cloudflared's per-tunnel registrations neither collide nor appear automatically. Note the flip
   side: after the first embedded tunnel starts, a host that *itself* uses the global

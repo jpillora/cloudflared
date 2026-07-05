@@ -1,6 +1,6 @@
 // Command fileserver serves a directory over a Cloudflare quick tunnel.
 //
-// It never binds a TCP port: its net.Listener comes from tunnel.Listen, so the
+// It never binds a TCP port: its net.Listener comes from Tunnel.Listen, so the
 // only public listener is the Cloudflare edge. Run it and open the printed
 // https://<random>.trycloudflare.com URL.
 //
@@ -25,6 +25,7 @@ func main() {
 		dir = os.Args[1]
 	}
 
+	// Host owns the process lifecycle: cancel ctx to stop the tunnel.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
@@ -40,19 +41,21 @@ func main() {
 		}
 	})
 
-	// ln is backed by the Cloudflare tunnel, not an OS TCP socket.
-	ln, err := tunnel.Listen(ctx, tunnel.EmbedOptions{
-		Logger:  &log,
-		Sink:    sink,
-		Version: "fileserver-example",
-	})
+	// new tunnel -> configure -> listen. The returned listener *is* the tunnel;
+	// ln is backed by the Cloudflare edge, not an OS TCP socket.
+	ln, err := tunnel.New().
+		Configure(tunnel.Config{Logger: &log, Sink: sink, Version: "fileserver-example"}).
+		Listen(ctx)
 	if err != nil {
 		log.Fatal().Err(err).Msg("start tunnel listener")
 	}
 	defer ln.Close()
 
-	// http.Serve accepts connections straight off the tunnel.
-	if err := http.Serve(ln, http.FileServer(http.Dir(dir))); err != nil {
+	// ClientIPMiddleware restores the real client IP (r.RemoteAddr) from the
+	// Cf-Connecting-Ip header — requests off the tunnel otherwise carry the
+	// origin unix socket's meaningless address.
+	handler := tunnel.ClientIPMiddleware(http.FileServer(http.Dir(dir)))
+	if err := http.Serve(ln, handler); err != nil && ctx.Err() == nil {
 		log.Info().Err(err).Msg("server stopped")
 	}
 }
