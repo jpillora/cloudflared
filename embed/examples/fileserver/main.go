@@ -41,11 +41,9 @@ func main() {
 		}
 	})
 
-	// new tunnel -> configure -> listen. The returned listener *is* the tunnel;
-	// ln is backed by the Cloudflare edge, not an OS TCP socket.
-	ln, err := tunnel.New().
-		Configure(tunnel.Config{Logger: &log, Sink: sink, Version: "fileserver-example"}).
-		Listen(ctx)
+	// new tunnel -> listen. The returned listener *is* the tunnel; ln is backed
+	// by the Cloudflare edge, not an OS TCP socket.
+	ln, err := tunnel.New(tunnel.Config{Logger: &log, Sink: sink, Version: "fileserver-example"}).Listen(ctx)
 	if err != nil {
 		log.Fatal().Err(err).Msg("start tunnel listener")
 	}

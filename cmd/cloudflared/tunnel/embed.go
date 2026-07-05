@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 
 	"github.com/google/uuid"
@@ -31,12 +30,6 @@ const defaultQuickService = "https://api.trycloudflare.com"
 // Config configures an in-process cloudflared Tunnel. It is the programmatic
 // equivalent of the flags a `cloudflared tunnel run` invocation would parse.
 type Config struct {
-	// OriginURL is the local service cloudflared proxies to, e.g.
-	// "http://127.0.0.1:7247". A "unix:/path/to.sock" value proxies to a unix
-	// domain socket instead of a TCP address (no port is opened) — this is how
-	// Tunnel.Listen exposes an in-process origin without binding an OS TCP
-	// listener.
-	OriginURL string
 	// Token, when set, runs a named tunnel using the base64 Cloudflare tunnel
 	// token. When empty, an account-less quick tunnel is requested instead.
 	Token string
@@ -57,54 +50,37 @@ type Config struct {
 	MetricsAddr string
 }
 
-// Tunnel is a single in-process cloudflared tunnel. Create one with New,
-// configure it with Configure, then start it with Run (blocking) or Listen
-// (returns a net.Listener). A Tunnel is one-shot: use a fresh instance per run.
+// Tunnel is a single in-process cloudflared tunnel. Create one with New, then
+// start it with Listen. A Tunnel is one-shot: use a fresh instance per run.
 //
-//	t := tunnel.New().Configure(tunnel.Config{OriginURL: "http://127.0.0.1:7247", Logger: &log})
-//	err := t.Run(ctx) // blocks until ctx is canceled or a fatal error occurs
+//	t := tunnel.New(tunnel.Config{Logger: &log, Sink: sink})
+//	ln, err := t.Listen(ctx) // serve an in-process handler over the tunnel
+//	http.Serve(ln, tunnel.ClientIPMiddleware(handler))
 //
-// Shutdown is entirely ctx-driven: cancel the context passed to Run/Listen to
-// stop the tunnel. No host process signals are ever trapped.
+// Shutdown is entirely ctx-driven: cancel the context passed to Listen (or close
+// the listener) to stop the tunnel. No host process signals are ever trapped.
 type Tunnel struct {
 	cfg Config
 }
 
-// New returns an unconfigured Tunnel. Call Configure before Run/Listen.
-func New() *Tunnel {
-	return &Tunnel{}
-}
-
-// Configure sets the tunnel's configuration and returns the same Tunnel so
-// calls can be chained: tunnel.New().Configure(cfg).Run(ctx).
-func (t *Tunnel) Configure(c Config) *Tunnel {
-	t.cfg = c
-	return t
-}
-
-// Run starts the tunnel and blocks until ctx is canceled or a fatal error
-// occurs. It never traps host process signals — lifecycle is entirely
-// ctx-driven. For quick tunnels the public URL is delivered via Config.Sink (a
-// SetURL event) as soon as it is allocated. Cancel ctx to shut the tunnel down.
-func (t *Tunnel) Run(ctx context.Context) error {
-	return t.run(ctx, t.cfg)
+// New returns a Tunnel configured with c. Call Listen to start it.
+func New(c Config) *Tunnel {
+	return &Tunnel{cfg: c}
 }
 
 // Listen starts the tunnel and returns a net.Listener whose connections are
 // proxied from the public Cloudflare edge — hand it straight to http.Serve. No
 // OS TCP port is ever bound: cloudflared bridges the tunnel to a private
 // unix-socket origin that backs the returned listener, so the listener *is* the
-// tunnel.
+// tunnel. Wrap the handler with ClientIPMiddleware to see the real client IP.
 //
 // A quick (account-less) tunnel is used unless Config.Token is set. The public
 // URL is delivered through Config.Sink (a connection.SetURL event) as soon as it
 // is allocated. Listen returns as soon as the origin socket is ready; the tunnel
 // connects in the background. Closing the returned listener (or canceling ctx)
-// stops serving and tears the tunnel down. Config.OriginURL is ignored — Listen
-// owns the origin.
+// stops serving and tears the tunnel down.
 func (t *Tunnel) Listen(ctx context.Context) (net.Listener, error) {
-	o := t.cfg
-	if o.Logger == nil {
+	if t.cfg.Logger == nil {
 		return nil, fmt.Errorf("embed: Logger is required")
 	}
 	dir, err := os.MkdirTemp("", "cfembed")
@@ -117,13 +93,12 @@ func (t *Tunnel) Listen(ctx context.Context) (net.Listener, error) {
 		_ = os.RemoveAll(dir)
 		return nil, fmt.Errorf("embed: listen on origin socket: %w", err)
 	}
-	o.OriginURL = "unix:" + sock
 
 	ctx, cancel := context.WithCancel(ctx)
 	tl := &tunnelListener{Listener: ln, cancel: cancel, dir: dir}
 	go func() {
-		if err := t.run(ctx, o); err != nil && ctx.Err() == nil {
-			o.Logger.Error().Err(err).Msg("embed: tunnel exited")
+		if err := t.run(ctx, sock); err != nil && ctx.Err() == nil {
+			t.cfg.Logger.Error().Err(err).Msg("embed: tunnel exited")
 		}
 		_ = tl.Close()
 	}()
@@ -151,13 +126,12 @@ func ClientIPMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// run is the shared entrypoint behind Run and Listen. It operates on a copy of
-// the config so per-run defaults (e.g. QuickServiceURL) and Listen's unix-socket
-// origin never mutate the instance's stored Config.
-func (t *Tunnel) run(ctx context.Context, o Config) error {
-	if o.Logger == nil {
-		return fmt.Errorf("embed: Logger is required")
-	}
+// run bridges the tunnel to the unix-socket origin backing Listen's listener,
+// blocking until ctx is canceled or a fatal error occurs. It operates on a copy
+// of the config so per-run defaults (e.g. QuickServiceURL) never mutate the
+// instance's stored Config.
+func (t *Tunnel) run(ctx context.Context, originSocket string) error {
+	o := t.cfg
 	if o.QuickServiceURL == "" {
 		o.QuickServiceURL = defaultQuickService
 	}
@@ -166,7 +140,7 @@ func (t *Tunnel) run(ctx context.Context, o Config) error {
 	// cloudflared's CLI globals and redirect its metric registration off the
 	// host's default prometheus registry. See makeMultiInstanceSafe.
 	makeMultiInstanceSafe(info)
-	c, err := o.buildContext(ctx, info)
+	c, err := o.buildContext(ctx, info, originSocket)
 	if err != nil {
 		return err
 	}
@@ -278,7 +252,7 @@ func (d dedupeRegisterer) MustRegister(cs ...prometheus.Collector) {
 // buildContext constructs a *cli.Context populated with cloudflared's own
 // tunnel/run flag defaults, overriding only the values the embed path needs.
 // Unset flags read as their zero value via cli.Context, matching upstream.
-func (o Config) buildContext(ctx context.Context, info *cliutil.BuildInfo) (*cli.Context, error) {
+func (o Config) buildContext(ctx context.Context, info *cliutil.BuildInfo, originSocket string) (*cli.Context, error) {
 	fs := flag.NewFlagSet("tunnel", flag.ContinueOnError)
 	seen := map[string]bool{}
 	apply := func(list []cli.Flag) error {
@@ -313,15 +287,10 @@ func (o Config) buildContext(ctx context.Context, info *cliutil.BuildInfo) (*cli
 			o.Logger.Warn().Str("flag", name).Err(err).Msg("embed: failed to set flag")
 		}
 	}
-	// A "unix:" origin routes through the --unix-socket flag; the --url flag only
-	// understands TCP/HTTP schemes (and the two are mutually exclusive). This is
-	// what lets Listen serve an in-process handler with no OS TCP listener.
-	switch {
-	case strings.HasPrefix(o.OriginURL, "unix:"):
-		set("unix-socket", strings.TrimPrefix(o.OriginURL, "unix:"))
-	case o.OriginURL != "":
-		set("url", o.OriginURL)
-	}
+	// The origin is always Listen's private unix socket, routed through the
+	// --unix-socket flag — this is what lets a handler be served with no OS TCP
+	// listener bound.
+	set("unix-socket", originSocket)
 	set(cfdflags.Protocol, "quic")
 	set(cfdflags.HaConnections, "1")
 	set(cfdflags.NoAutoUpdate, "true")
