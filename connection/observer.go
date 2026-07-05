@@ -114,6 +114,21 @@ func (o *Observer) dispatchEvents() {
 		case sink := <-o.addSinkChan:
 			sinks = append(sinks, sink)
 		case evt := <-o.tunnelEventChan:
+			// Drain any sink registrations already queued before dispatching so a
+			// sink registered immediately before an event reliably receives it.
+			// StartServer registers the embed sink and then calls SendURL for the
+			// quick-tunnel hostname on the next line; both land in their buffered
+			// channels back-to-back, and this select would otherwise pick between
+			// them at random — dispatching SetURL to an empty sink list ~half the
+			// time and silently dropping the tunnel URL (badly under concurrency).
+			for drained := false; !drained; {
+				select {
+				case sink := <-o.addSinkChan:
+					sinks = append(sinks, sink)
+				default:
+					drained = true
+				}
+			}
 			for _, sink := range sinks {
 				sink.OnTunnelEvent(evt)
 			}
