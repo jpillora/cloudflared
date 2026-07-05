@@ -28,14 +28,14 @@ import (
 // quick tunnels.
 const defaultQuickService = "https://api.trycloudflare.com"
 
-// EmbedOptions configures an in-process cloudflared tunnel. It is the
-// programmatic equivalent of the flags a `cloudflared tunnel run` invocation
-// would parse.
-type EmbedOptions struct {
+// Config configures an in-process cloudflared Tunnel. It is the programmatic
+// equivalent of the flags a `cloudflared tunnel run` invocation would parse.
+type Config struct {
 	// OriginURL is the local service cloudflared proxies to, e.g.
 	// "http://127.0.0.1:7247". A "unix:/path/to.sock" value proxies to a unix
 	// domain socket instead of a TCP address (no port is opened) — this is how
-	// Listen exposes an in-process origin without binding an OS TCP listener.
+	// Tunnel.Listen exposes an in-process origin without binding an OS TCP
+	// listener.
 	OriginURL string
 	// Token, when set, runs a named tunnel using the base64 Cloudflare tunnel
 	// token. When empty, an account-less quick tunnel is requested instead.
@@ -55,6 +55,135 @@ type EmbedOptions struct {
 	// (default) means no metrics server is started and no OS TCP listener is
 	// opened — metrics are strictly opt-in when embedded.
 	MetricsAddr string
+}
+
+// Tunnel is a single in-process cloudflared tunnel. Create one with New,
+// configure it with Configure, then start it with Run (blocking) or Listen
+// (returns a net.Listener). A Tunnel is one-shot: use a fresh instance per run.
+//
+//	t := tunnel.New().Configure(tunnel.Config{OriginURL: "http://127.0.0.1:7247", Logger: &log})
+//	err := t.Run(ctx) // blocks until ctx is canceled or a fatal error occurs
+//
+// Shutdown is entirely ctx-driven: cancel the context passed to Run/Listen to
+// stop the tunnel. No host process signals are ever trapped.
+type Tunnel struct {
+	cfg Config
+}
+
+// New returns an unconfigured Tunnel. Call Configure before Run/Listen.
+func New() *Tunnel {
+	return &Tunnel{}
+}
+
+// Configure sets the tunnel's configuration and returns the same Tunnel so
+// calls can be chained: tunnel.New().Configure(cfg).Run(ctx).
+func (t *Tunnel) Configure(c Config) *Tunnel {
+	t.cfg = c
+	return t
+}
+
+// Run starts the tunnel and blocks until ctx is canceled or a fatal error
+// occurs. It never traps host process signals — lifecycle is entirely
+// ctx-driven. For quick tunnels the public URL is delivered via Config.Sink (a
+// SetURL event) as soon as it is allocated. Cancel ctx to shut the tunnel down.
+func (t *Tunnel) Run(ctx context.Context) error {
+	return t.run(ctx, t.cfg)
+}
+
+// Listen starts the tunnel and returns a net.Listener whose connections are
+// proxied from the public Cloudflare edge — hand it straight to http.Serve. No
+// OS TCP port is ever bound: cloudflared bridges the tunnel to a private
+// unix-socket origin that backs the returned listener, so the listener *is* the
+// tunnel.
+//
+// A quick (account-less) tunnel is used unless Config.Token is set. The public
+// URL is delivered through Config.Sink (a connection.SetURL event) as soon as it
+// is allocated. Listen returns as soon as the origin socket is ready; the tunnel
+// connects in the background. Closing the returned listener (or canceling ctx)
+// stops serving and tears the tunnel down. Config.OriginURL is ignored — Listen
+// owns the origin.
+func (t *Tunnel) Listen(ctx context.Context) (net.Listener, error) {
+	o := t.cfg
+	if o.Logger == nil {
+		return nil, fmt.Errorf("embed: Logger is required")
+	}
+	dir, err := os.MkdirTemp("", "cfembed")
+	if err != nil {
+		return nil, fmt.Errorf("embed: create origin dir: %w", err)
+	}
+	sock := filepath.Join(dir, "origin.sock")
+	ln, err := net.Listen("unix", sock)
+	if err != nil {
+		_ = os.RemoveAll(dir)
+		return nil, fmt.Errorf("embed: listen on origin socket: %w", err)
+	}
+	o.OriginURL = "unix:" + sock
+
+	ctx, cancel := context.WithCancel(ctx)
+	tl := &tunnelListener{Listener: ln, cancel: cancel, dir: dir}
+	go func() {
+		if err := t.run(ctx, o); err != nil && ctx.Err() == nil {
+			o.Logger.Error().Err(err).Msg("embed: tunnel exited")
+		}
+		_ = tl.Close()
+	}()
+	return tl, nil
+}
+
+// HeaderClientIP is the header Cloudflare's edge sets to the originating client
+// IP on every request it forwards to an origin — including requests arriving
+// through a tunnel.
+const HeaderClientIP = "Cf-Connecting-Ip"
+
+// ClientIPMiddleware returns an http.Handler that rewrites r.RemoteAddr from
+// Cloudflare's Cf-Connecting-Ip header (the real client IP) before invoking
+// next. A handler served over a Tunnel.Listen listener otherwise sees the origin
+// unix socket's meaningless RemoteAddr, so anything downstream that logs, rate-
+// limits or authorizes by client IP would be wrong. This is the Cloudflare
+// analog of tailscale's WhoIsMiddleware. If the header is absent or not a valid
+// IP, RemoteAddr is left unchanged.
+func ClientIPMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if ip := r.Header.Get(HeaderClientIP); ip != "" && net.ParseIP(ip) != nil {
+			r.RemoteAddr = net.JoinHostPort(ip, "0")
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// run is the shared entrypoint behind Run and Listen. It operates on a copy of
+// the config so per-run defaults (e.g. QuickServiceURL) and Listen's unix-socket
+// origin never mutate the instance's stored Config.
+func (t *Tunnel) run(ctx context.Context, o Config) error {
+	if o.Logger == nil {
+		return fmt.Errorf("embed: Logger is required")
+	}
+	if o.QuickServiceURL == "" {
+		o.QuickServiceURL = defaultQuickService
+	}
+	info := cliutil.GetBuildInfo("embedded", o.Version)
+	// Prepare the process for embedded, multi-instance use (idempotent): populate
+	// cloudflared's CLI globals and redirect its metric registration off the
+	// host's default prometheus registry. See makeMultiInstanceSafe.
+	makeMultiInstanceSafe(info)
+	c, err := o.buildContext(ctx, info)
+	if err != nil {
+		return err
+	}
+	if o.Token != "" {
+		tok, err := ParseToken(o.Token)
+		if err != nil {
+			return fmt.Errorf("embed: invalid tunnel token: %w", err)
+		}
+		return StartServer(
+			c,
+			info,
+			&connection.TunnelProperties{Credentials: tok.Credentials()},
+			o.Logger,
+			withEmbedded(o.Sink, o.MetricsAddr),
+		)
+	}
+	return o.runQuick(ctx, c, info)
 }
 
 // EmbedServerOption tunes StartServer for in-process use.
@@ -81,10 +210,10 @@ func withEmbedded(sink connection.EventSinkFunc, metricsAddr string) EmbedServer
 // embedOnce guards the one-time, process-wide setup embedded tunnels need.
 var embedOnce sync.Once
 
-// makeMultiInstanceSafe prepares the host process so that concurrent
-// RunEmbedded/Listen calls are safe. It runs exactly once per process and only
-// from the embedded path, so CLI behaviour is never affected. It addresses two
-// cloudflared globals that are otherwise unsafe to share across tunnels:
+// makeMultiInstanceSafe prepares the host process so that concurrent Tunnel
+// runs are safe. It runs exactly once per process and only from the embedded
+// path, so CLI behaviour is never affected. It addresses two cloudflared
+// globals that are otherwise unsafe to share across tunnels:
 //
 //   - Init populates the buildInfo/graceShutdownC package globals normally set
 //     by the CLI entrypoint (StartServer reads buildInfo for diagnostics;
@@ -101,8 +230,8 @@ var embedOnce sync.Once
 //     registry rejects duplicate collectors. We redirect DefaultRegisterer — and
 //     its paired DefaultGatherer — to a private, duplicate-tolerant registry:
 //     nothing lands on the host's real default registry, concurrent tunnels no
-//     longer panic, and the opt-in metrics server (EmbedOptions.MetricsAddr)
-//     still exposes cloudflared's metrics because promhttp.Handler() serves
+//     longer panic, and the opt-in metrics server (Config.MetricsAddr) still
+//     exposes cloudflared's metrics because promhttp.Handler() serves
 //     DefaultGatherer. With MetricsAddr empty (the default) no metrics server
 //     runs and nothing is registered or exposed — metrics are never automatic.
 func makeMultiInstanceSafe(info *cliutil.BuildInfo) {
@@ -146,46 +275,10 @@ func (d dedupeRegisterer) MustRegister(cs ...prometheus.Collector) {
 	}
 }
 
-// RunEmbedded runs a cloudflared tunnel in-process. It blocks until ctx is
-// canceled or a fatal error occurs, and never traps host process signals —
-// lifecycle is entirely ctx-driven. For quick tunnels the public URL is
-// delivered via EmbedOptions.Sink (a SetURL event) as soon as it is allocated.
-func RunEmbedded(ctx context.Context, o EmbedOptions) error {
-	if o.Logger == nil {
-		return fmt.Errorf("embed: Logger is required")
-	}
-	if o.QuickServiceURL == "" {
-		o.QuickServiceURL = defaultQuickService
-	}
-	info := cliutil.GetBuildInfo("embedded", o.Version)
-	// Prepare the process for embedded, multi-instance use (idempotent): populate
-	// cloudflared's CLI globals and redirect its metric registration off the
-	// host's default prometheus registry. See makeMultiInstanceSafe.
-	makeMultiInstanceSafe(info)
-	c, err := o.buildContext(ctx, info)
-	if err != nil {
-		return err
-	}
-	if o.Token != "" {
-		tok, err := ParseToken(o.Token)
-		if err != nil {
-			return fmt.Errorf("embed: invalid tunnel token: %w", err)
-		}
-		return StartServer(
-			c,
-			info,
-			&connection.TunnelProperties{Credentials: tok.Credentials()},
-			o.Logger,
-			withEmbedded(o.Sink, o.MetricsAddr),
-		)
-	}
-	return o.runQuick(ctx, c, info)
-}
-
 // buildContext constructs a *cli.Context populated with cloudflared's own
 // tunnel/run flag defaults, overriding only the values the embed path needs.
 // Unset flags read as their zero value via cli.Context, matching upstream.
-func (o EmbedOptions) buildContext(ctx context.Context, info *cliutil.BuildInfo) (*cli.Context, error) {
+func (o Config) buildContext(ctx context.Context, info *cliutil.BuildInfo) (*cli.Context, error) {
 	fs := flag.NewFlagSet("tunnel", flag.ContinueOnError)
 	seen := map[string]bool{}
 	apply := func(list []cli.Flag) error {
@@ -245,7 +338,7 @@ func (o EmbedOptions) buildContext(ctx context.Context, info *cliutil.BuildInfo)
 // runQuick allocates an account-less quick tunnel (mirroring RunQuickTunnel's
 // request) and hands the resulting credentials to StartServer. The hostname is
 // known synchronously from the allocation response.
-func (o EmbedOptions) runQuick(ctx context.Context, c *cli.Context, info *cliutil.BuildInfo) error {
+func (o Config) runQuick(ctx context.Context, c *cli.Context, info *cliutil.BuildInfo) error {
 	client := http.Client{
 		Transport: &http.Transport{
 			TLSHandshakeTimeout:   httpTimeout,
@@ -290,48 +383,9 @@ func (o EmbedOptions) runQuick(ctx context.Context, c *cli.Context, info *cliuti
 	)
 }
 
-// Listen starts an in-process cloudflared tunnel and returns a net.Listener
-// whose connections are proxied from the public Cloudflare edge — hand it
-// straight to http.Serve. No OS TCP port is ever bound: cloudflared bridges the
-// tunnel to a private unix-socket origin that backs the returned listener, so
-// the listener *is* the tunnel.
-//
-// A quick (account-less) tunnel is used unless o.Token is set. The public URL
-// is delivered through o.Sink (a connection.SetURL event) as soon as it is
-// allocated. Listen returns as soon as the origin socket is ready; the tunnel
-// connects in the background. Closing the returned listener (or canceling ctx)
-// stops serving and tears the tunnel down. o.OriginURL is ignored — Listen owns
-// the origin.
-func Listen(ctx context.Context, o EmbedOptions) (net.Listener, error) {
-	if o.Logger == nil {
-		return nil, fmt.Errorf("embed: Logger is required")
-	}
-	dir, err := os.MkdirTemp("", "cfembed")
-	if err != nil {
-		return nil, fmt.Errorf("embed: create origin dir: %w", err)
-	}
-	sock := filepath.Join(dir, "origin.sock")
-	ln, err := net.Listen("unix", sock)
-	if err != nil {
-		_ = os.RemoveAll(dir)
-		return nil, fmt.Errorf("embed: listen on origin socket: %w", err)
-	}
-	o.OriginURL = "unix:" + sock
-
-	ctx, cancel := context.WithCancel(ctx)
-	tl := &tunnelListener{Listener: ln, cancel: cancel, dir: dir}
-	go func() {
-		if err := RunEmbedded(ctx, o); err != nil && ctx.Err() == nil {
-			o.Logger.Error().Err(err).Msg("embed: tunnel exited")
-		}
-		_ = tl.Close()
-	}()
-	return tl, nil
-}
-
-// tunnelListener is the net.Listener returned by Listen. Its connections arrive
-// from the Cloudflare edge via a private unix-socket origin. Close stops the
-// tunnel and removes the socket's temp dir.
+// tunnelListener is the net.Listener returned by Tunnel.Listen. Its connections
+// arrive from the Cloudflare edge via a private unix-socket origin. Close stops
+// the tunnel and removes the socket's temp dir.
 type tunnelListener struct {
 	net.Listener
 	cancel    context.CancelFunc
