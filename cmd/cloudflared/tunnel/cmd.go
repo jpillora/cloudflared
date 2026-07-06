@@ -473,6 +473,10 @@ func StartServer(
 	if err != nil {
 		return err
 	}
+	// Expose the live config getter to an embedding host (Tunnel.GetMetadata).
+	if emb.onConfig != nil {
+		emb.onConfig(orchestrator.GetVersionedConfigJSON)
+	}
 
 	// The metrics/readiness/diagnostic server binds an OS TCP listener. The
 	// normal CLI always runs it; when embedded it is strictly opt-in via

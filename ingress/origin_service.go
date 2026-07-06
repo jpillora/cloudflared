@@ -375,10 +375,18 @@ func newHTTPTransport(service OriginService, cfg OriginRequestConfig, log *zerol
 	// DialContext depends on which kind of origin is being used.
 	dialContext := dialer.DialContext
 	switch service := service.(type) {
-	// If this origin is a unix socket, enforce network type "unix".
+	// If this origin is a unix socket, enforce network type "unix" — unless an
+	// embedding host registered an in-memory listener under this key, in which
+	// case dial that instead of touching the filesystem.
 	case *unixSocketPath:
-		httpTransport.DialContext = func(ctx context.Context, _, _ string) (net.Conn, error) {
-			return dialContext(ctx, "unix", service.path)
+		if memDial, ok := memoryOriginDialer(service.path); ok {
+			httpTransport.DialContext = func(ctx context.Context, _, _ string) (net.Conn, error) {
+				return memDial(ctx)
+			}
+		} else {
+			httpTransport.DialContext = func(ctx context.Context, _, _ string) (net.Conn, error) {
+				return dialContext(ctx, "unix", service.path)
+			}
 		}
 
 	// Otherwise, use the regular network config.
