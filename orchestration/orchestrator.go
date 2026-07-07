@@ -35,7 +35,9 @@ type Orchestrator struct {
 	internalRules []ingress.Rule
 	// cloudflared Configuration
 	config *Config
-	tags   []pogs.Tag
+	// ignoreRemote keeps the local startup config in force, dropping edge pushes.
+	ignoreRemote bool
+	tags         []pogs.Tag
 	// flowLimiter tracks active sessions across the tunnel and limits new sessions if they are above the limit.
 	flowLimiter cfdflow.Limiter
 	// Origin dialer service to manage egress socket dialing.
@@ -61,6 +63,7 @@ func NewOrchestrator(ctx context.Context,
 		currentVersion:      -1,
 		internalRules:       internalRules,
 		config:              config,
+		ignoreRemote:        config.IgnoreRemoteConfig,
 		tags:                tags,
 		flowLimiter:         cfdflow.NewLimiter(config.WarpRouting.MaxActiveFlows),
 		originDialerService: config.OriginDialerService,
@@ -78,6 +81,14 @@ func NewOrchestrator(ctx context.Context,
 func (o *Orchestrator) UpdateConfig(version int32, config []byte) *pogs.UpdateConfigurationResponse {
 	o.lock.Lock()
 	defer o.lock.Unlock()
+
+	// An embedding host that owns the origin keeps its local config in force.
+	if o.ignoreRemote {
+		o.log.Debug().
+			Int32("version", version).
+			Msg("Ignoring remote configuration; local origin override in effect")
+		return &pogs.UpdateConfigurationResponse{LastAppliedVersion: o.currentVersion}
+	}
 
 	if o.currentVersion >= version {
 		o.log.Debug().

@@ -245,6 +245,44 @@ func TestUpdateConfiguration_WithoutIngressRule(t *testing.T) {
 	require.Len(t, orchestrator.config.Ingress.Rules, 1)
 }
 
+// Validates that an orchestrator created with IgnoreRemoteConfig drops any
+// configuration the edge pushes, keeping the local (startup) ingress in force.
+// This backs the embed's Config.LocalOrigin, where the host owns the origin.
+func TestUpdateConfiguration_IgnoreRemote(t *testing.T) {
+	originDialer := ingress.NewOriginDialer(ingress.OriginConfig{
+		DefaultDialer:   testDefaultDialer,
+		TCPWriteTimeout: 1 * time.Second,
+	}, &testLogger)
+	initConfig := &Config{
+		Ingress:             &ingress.Ingress{},
+		OriginDialerService: originDialer,
+		IgnoreRemoteConfig:  true,
+	}
+	orchestrator, err := NewOrchestrator(t.Context(), initConfig, testTags, []ingress.Rule{}, &testLogger)
+	require.NoError(t, err)
+	// The empty startup ingress resolves to the single default catch-all rule.
+	require.Len(t, orchestrator.config.Ingress.Rules, 1)
+	require.Equal(t, "http_status:503", orchestrator.config.Ingress.Rules[0].Service.String())
+
+	// The edge pushes a real ingress; it must be ignored, not applied.
+	remote := []byte(`
+{
+    "ingress": [
+        { "hostname": "app.tunnel.org", "service": "http://192.16.19.1:443" },
+        { "service": "http_status:404" }
+    ],
+    "warp-routing": {}
+}
+`)
+	resp := orchestrator.UpdateConfig(1, remote)
+	require.NoError(t, resp.Err)
+	// Version stays at the initial -1 and the pushed rules are not applied.
+	require.EqualValues(t, -1, resp.LastAppliedVersion)
+	require.EqualValues(t, -1, orchestrator.currentVersion)
+	require.Len(t, orchestrator.config.Ingress.Rules, 1)
+	require.Equal(t, "http_status:503", orchestrator.config.Ingress.Rules[0].Service.String())
+}
+
 // TestConcurrentUpdateAndRead makes sure orchestrator can receive updates and return origin proxy concurrently
 func TestConcurrentUpdateAndRead(t *testing.T) {
 	const (

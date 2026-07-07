@@ -52,6 +52,12 @@ type Config struct {
 	// (default) means no metrics server is started and no OS TCP listener is
 	// opened — metrics are strictly opt-in when embedded.
 	MetricsAddr string
+	// LocalOrigin, for a named tunnel, keeps this host's own origin (the handler
+	// served over Listen) in force instead of the dashboard-managed service the
+	// edge would otherwise push. The connector ignores remote config, so every
+	// request is served by the local handler regardless of the tunnel's
+	// dashboard ingress. No effect on quick tunnels (they have no remote config).
+	LocalOrigin bool
 }
 
 // Tunnel is a single in-process cloudflared tunnel. Create one with New, then
@@ -294,7 +300,7 @@ func (t *Tunnel) run(ctx context.Context, originSocket string) error {
 			info,
 			&connection.TunnelProperties{Credentials: tok.Credentials()},
 			o.Logger,
-			withEmbedded(o.Sink, o.MetricsAddr, t.captureConfig),
+			withEmbedded(o.Sink, o.MetricsAddr, t.captureConfig, o.LocalOrigin),
 		)
 	}
 	return o.runQuick(ctx, c, info)
@@ -308,6 +314,7 @@ type embedServerOptions struct {
 	sink        connection.EventSinkFunc
 	metricsAddr string
 	onConfig    func(func() ([]byte, error))
+	localOrigin bool
 }
 
 // withEmbedded marks a StartServer call as host-embedded: it must not trap
@@ -315,12 +322,14 @@ type embedServerOptions struct {
 // server (unless metricsAddr is set), and it registers sink on the connection
 // observer. onConfig, when set, receives the orchestrator's live config getter
 // once it exists (so GetMetadata can read the tunnel's current routes).
-func withEmbedded(sink connection.EventSinkFunc, metricsAddr string, onConfig func(func() ([]byte, error))) EmbedServerOption {
+// localOrigin keeps the local origin in force (ignore edge-pushed config).
+func withEmbedded(sink connection.EventSinkFunc, metricsAddr string, onConfig func(func() ([]byte, error)), localOrigin bool) EmbedServerOption {
 	return func(o *embedServerOptions) {
 		o.embedded = true
 		o.sink = sink
 		o.metricsAddr = metricsAddr
 		o.onConfig = onConfig
+		o.localOrigin = localOrigin
 	}
 }
 
@@ -492,7 +501,7 @@ func (o Config) runQuick(ctx context.Context, c *cli.Context, info *cliutil.Buil
 		info,
 		&connection.TunnelProperties{Credentials: credentials, QuickTunnelUrl: data.Result.Hostname},
 		o.Logger,
-		withEmbedded(o.Sink, o.MetricsAddr, nil), // quick tunnels have no routes/metadata
+		withEmbedded(o.Sink, o.MetricsAddr, nil, false), // quick tunnels have no routes/metadata or remote config
 	)
 }
 

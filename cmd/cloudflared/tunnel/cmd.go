@@ -469,6 +469,11 @@ func StartServer(
 		logger.ManagementLogger,
 	)
 	internalRules := []ingress.Rule{ingress.NewManagementRule(mgmt)}
+	// An embedded host can keep its own (local) origin in force instead of the
+	// dashboard-managed config the edge would otherwise push.
+	if emb.localOrigin {
+		orchestratorConfig.IgnoreRemoteConfig = true
+	}
 	orchestrator, err := orchestration.NewOrchestrator(ctx, orchestratorConfig, tunnelConfig.Tags, internalRules, tunnelConfig.Log)
 	if err != nil {
 		return err
