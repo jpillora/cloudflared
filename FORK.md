@@ -219,6 +219,12 @@ before `NewOrchestrator`. Verified end-to-end against a dashboard-routed named t
 `LocalOrigin:true` the local marker handler answered the public hostname instead of the dashboard's
 (otherwise-502) service URL.
 
+Dropping the push would also hide the tunnel's routes from `GetMetadata` (they only arrive in that
+push). So the gate *retains* the ignored ingress (`reportedIngress`/`reportedVersion`) without
+applying it, and `Orchestrator.GetReportedConfigJSON` — which the embed hands to `onConfig` instead
+of `GetVersionedConfigJSON` — reports those hostnames for **display** while the local origin keeps
+serving. A host can thus show "this tunnel routes `x.example.com` → my handler" even under override.
+
 ### 5. `embed/examples/fileserver/main.go` (new)
 
 A ~40-line `main` that serves a directory over a quick tunnel with **no TCP port bound**:

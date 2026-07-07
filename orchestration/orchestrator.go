@@ -37,7 +37,12 @@ type Orchestrator struct {
 	config *Config
 	// ignoreRemote keeps the local startup config in force, dropping edge pushes.
 	ignoreRemote bool
-	tags         []pogs.Tag
+	// reportedIngress/reportedVersion retain the most recent edge-pushed config
+	// while ignoreRemote drops it, so a host can still display the tunnel's routes
+	// (via GetReportedConfigJSON). Display-only: the local origin is what serves.
+	reportedIngress *ingress.Ingress
+	reportedVersion int32
+	tags            []pogs.Tag
 	// flowLimiter tracks active sessions across the tunnel and limits new sessions if they are above the limit.
 	flowLimiter cfdflow.Limiter
 	// Origin dialer service to manage egress socket dialing.
@@ -82,8 +87,16 @@ func (o *Orchestrator) UpdateConfig(version int32, config []byte) *pogs.UpdateCo
 	o.lock.Lock()
 	defer o.lock.Unlock()
 
-	// An embedding host that owns the origin keeps its local config in force.
+	// An embedding host that owns the origin keeps its local config in force. The
+	// pushed config is not applied, but its ingress is retained so the host can
+	// still surface the tunnel's routes (GetReportedConfigJSON).
 	if o.ignoreRemote {
+		var newConf newRemoteConfig
+		if err := json.Unmarshal(config, &newConf); err == nil {
+			ing := newConf.Ingress
+			o.reportedIngress = &ing
+			o.reportedVersion = version
+		}
 		o.log.Debug().
 			Int32("version", version).
 			Msg("Ignoring remote configuration; local origin override in effect")
@@ -248,6 +261,45 @@ func (o *Orchestrator) GetVersionedConfigJSON() ([]byte, error) {
 			Ingress:       o.config.Ingress.Rules,
 			WarpRouting:   o.config.WarpRouting.RawConfig(),
 			OriginRequest: o.config.Ingress.Defaults,
+		},
+	}
+	return json.Marshal(currentConfiguration)
+}
+
+// GetReportedConfigJSON is like GetVersionedConfigJSON, but when the edge's
+// config is being ignored (local origin override), it reports the routes from
+// the most recent ignored push so a host can still display them. This is
+// display-only — the local origin is what actually serves. With no override (or
+// before any push) it returns the applied config, identical to
+// GetVersionedConfigJSON.
+func (o *Orchestrator) GetReportedConfigJSON() ([]byte, error) {
+	o.lock.RLock()
+	defer o.lock.RUnlock()
+
+	ingressConfig := o.config.Ingress
+	version := o.currentVersion
+	if o.ignoreRemote && o.reportedIngress != nil {
+		ingressConfig = o.reportedIngress
+		version = o.reportedVersion
+	}
+
+	var currentConfiguration = struct {
+		Version int32 `json:"version"`
+		Config  struct {
+			Ingress       []ingress.Rule              `json:"ingress"`
+			WarpRouting   config.WarpRoutingConfig    `json:"warp-routing"`
+			OriginRequest ingress.OriginRequestConfig `json:"originRequest"`
+		} `json:"config"`
+	}{
+		Version: version,
+		Config: struct {
+			Ingress       []ingress.Rule              `json:"ingress"`
+			WarpRouting   config.WarpRoutingConfig    `json:"warp-routing"`
+			OriginRequest ingress.OriginRequestConfig `json:"originRequest"`
+		}{
+			Ingress:       ingressConfig.Rules,
+			WarpRouting:   o.config.WarpRouting.RawConfig(),
+			OriginRequest: ingressConfig.Defaults,
 		},
 	}
 	return json.Marshal(currentConfiguration)

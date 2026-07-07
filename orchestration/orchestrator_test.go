@@ -281,6 +281,16 @@ func TestUpdateConfiguration_IgnoreRemote(t *testing.T) {
 	require.EqualValues(t, -1, orchestrator.currentVersion)
 	require.Len(t, orchestrator.config.Ingress.Rules, 1)
 	require.Equal(t, "http_status:503", orchestrator.config.Ingress.Rules[0].Service.String())
+
+	// The applied config still reflects the local origin (no routes)...
+	applied, err := orchestrator.GetVersionedConfigJSON()
+	require.NoError(t, err)
+	require.NotContains(t, string(applied), "app.tunnel.org")
+	// ...but the reported config surfaces the ignored push's routes for display.
+	reported, err := orchestrator.GetReportedConfigJSON()
+	require.NoError(t, err)
+	require.Contains(t, string(reported), "app.tunnel.org")
+	require.Contains(t, string(reported), `"version":1`)
 }
 
 // TestConcurrentUpdateAndRead makes sure orchestrator can receive updates and return origin proxy concurrently

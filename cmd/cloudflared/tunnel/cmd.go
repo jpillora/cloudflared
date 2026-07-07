@@ -479,8 +479,10 @@ func StartServer(
 		return err
 	}
 	// Expose the live config getter to an embedding host (Tunnel.GetMetadata).
+	// GetReportedConfigJSON also surfaces routes from an ignored remote push
+	// (local origin override), so a host can display them even when overriding.
 	if emb.onConfig != nil {
-		emb.onConfig(orchestrator.GetVersionedConfigJSON)
+		emb.onConfig(orchestrator.GetReportedConfigJSON)
 	}
 
 	// The metrics/readiness/diagnostic server binds an OS TCP listener. The
