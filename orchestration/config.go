@@ -23,6 +23,11 @@ type Config struct {
 	WarpRouting         ingress.WarpRoutingConfig
 	OriginDialerService *ingress.OriginDialerService
 
+	// IgnoreRemoteConfig keeps the local (startup) ingress in force by dropping
+	// any configuration the edge pushes. Used by an embedding host that wants its
+	// own origin to win over dashboard-managed config.
+	IgnoreRemoteConfig bool
+
 	// Extra settings used to configure this instance but that are not eligible for remotely management
 	// ie. (--protocol, --loglevel, ...)
 	ConfigurationFlags map[string]string
