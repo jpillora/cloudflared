@@ -20,3 +20,5 @@ built_artifacts/
 component-tests/.venv
 /artifacts
 /vendor
+# meads (md) task log — fork-local, not part of the mirrored upstream + embed patch
+/TASKS.md
