@@ -19,3 +19,5 @@ ssh_server_tests/.env
 built_artifacts/
 component-tests/.venv
 /artifacts
+# meads (md) task log — fork-local, not part of the mirrored upstream + embed patch
+/TASKS.md
