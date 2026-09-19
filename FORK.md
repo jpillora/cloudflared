@@ -108,7 +108,10 @@ What it does:
 - **Quick mode** (`Token == ""`): POSTs `"<QuickServiceURL>/tunnel"` (mirroring upstream
   `RunQuickTunnel` in public mode — upstream has since added an OTP `auth_mode` protected
   mode plus `QuickTunnelAuth` request interception, which the embed does not consume),
-  reads `QuickTunnelResponse`; the public hostname is `Result.Hostname`
+  reads `QuickTunnelResponse` and applies the same provisioning checks upstream does
+  (non-2xx status, a non-empty `Errors` array, `Success`) so a rejected allocation
+  reports the service's error rather than failing later on an empty tunnel ID;
+  the public hostname is `Result.Hostname`
   (known synchronously) and the credentials come from the same response. Then calls
   `StartServer(..., &connection.TunnelProperties{Credentials, QuickTunnelUrl}, ..., withEmbedded(sink))`.
 - **Named mode** (`Token != ""`): `ParseToken(Token)` → `StartServer(..., &connection.TunnelProperties{Credentials: tok.Credentials()}, ..., withEmbedded(sink))`.
@@ -361,7 +364,12 @@ Notes from the 2026-09-19 re-sync (`master` `c06b2d43` → `be3ac127`, 62 upstre
   untracking commit (`.gitignore` + delete) rather than leaving it tracked.
 - Post-rename embed commits carry `jpillora` import paths; when replayed onto a fresh
   `cloudflare`-paths `master`, prefer the embed logic and leave import-path mismatches alone —
-  `rename-fork.sh` converges everything afterwards.
+  `rename-fork.sh` converges everything afterwards. **One exception:**
+  `embed/examples/fileserver/main.go` imports the fork *as a module consumer would*, so a
+  `jpillora` path there does not compile until `go.mod` is renamed. Rewrite that file's imports
+  back to `cloudflare` when replaying the pre-rename commits (`rename-fork.sh` restores them in
+  the namespace commit); otherwise every embed commit before the rename fails to build and
+  `git bisect` on `embed` is useless.
 
 `cmd/cloudflared/tunnel/cmd.go`, `connection/observer.go`, `ingress/origin_service.go`, and
 `orchestration/{config,orchestrator}.go` are the files that can conflict (during the cherry-pick):
