@@ -24,17 +24,17 @@ import (
 	"go.uber.org/mock/gomock"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/cloudflare/cloudflared/mocks"
+	"github.com/jpillora/cloudflared/mocks"
 
-	cfdflow "github.com/cloudflare/cloudflared/flow"
+	cfdflow "github.com/jpillora/cloudflared/flow"
 
-	"github.com/cloudflare/cloudflared/cfio"
-	"github.com/cloudflare/cloudflared/config"
-	"github.com/cloudflare/cloudflared/connection"
-	"github.com/cloudflare/cloudflared/hello"
-	"github.com/cloudflare/cloudflared/ingress"
-	"github.com/cloudflare/cloudflared/tracing"
-	"github.com/cloudflare/cloudflared/tunnelrpc/pogs"
+	"github.com/jpillora/cloudflared/cfio"
+	"github.com/jpillora/cloudflared/config"
+	"github.com/jpillora/cloudflared/connection"
+	"github.com/jpillora/cloudflared/hello"
+	"github.com/jpillora/cloudflared/ingress"
+	"github.com/jpillora/cloudflared/tracing"
+	"github.com/jpillora/cloudflared/tunnelrpc/pogs"
 )
 
 var (

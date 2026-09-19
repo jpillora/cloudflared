@@ -12,15 +12,15 @@ import (
 	"github.com/quic-go/quic-go"
 	"github.com/rs/zerolog"
 
-	"github.com/cloudflare/cloudflared/connection/dialopts"
+	"github.com/jpillora/cloudflared/connection/dialopts"
 
-	"github.com/cloudflare/cloudflared/connection"
-	cfdcrypto "github.com/cloudflare/cloudflared/crypto"
-	edgedial "github.com/cloudflare/cloudflared/edgediscovery"
-	"github.com/cloudflare/cloudflared/edgediscovery/allregions"
-	"github.com/cloudflare/cloudflared/features"
-	cfdquic "github.com/cloudflare/cloudflared/quic"
-	"github.com/cloudflare/cloudflared/tlsconfig"
+	"github.com/jpillora/cloudflared/connection"
+	cfdcrypto "github.com/jpillora/cloudflared/crypto"
+	edgedial "github.com/jpillora/cloudflared/edgediscovery"
+	"github.com/jpillora/cloudflared/edgediscovery/allregions"
+	"github.com/jpillora/cloudflared/features"
+	cfdquic "github.com/jpillora/cloudflared/quic"
+	"github.com/jpillora/cloudflared/tlsconfig"
 )
 
 const (

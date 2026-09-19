@@ -6,8 +6,8 @@ import (
 	"io"
 	"time"
 
-	"github.com/cloudflare/cloudflared/tunnelrpc"
-	"github.com/cloudflare/cloudflared/tunnelrpc/pogs"
+	"github.com/jpillora/cloudflared/tunnelrpc"
+	"github.com/jpillora/cloudflared/tunnelrpc/pogs"
 )
 
 // HandleRequestFunc wraps the proxied request from the upstream and also provides methods on the stream to

@@ -17,13 +17,13 @@ import (
 	"github.com/urfave/cli/v2"
 	"golang.org/x/net/idna"
 
-	"github.com/cloudflare/cloudflared/carrier"
-	"github.com/cloudflare/cloudflared/cmd/cloudflared/cliutil"
-	cfdflags "github.com/cloudflare/cloudflared/cmd/cloudflared/flags"
-	"github.com/cloudflare/cloudflared/logger"
-	"github.com/cloudflare/cloudflared/sshgen"
-	"github.com/cloudflare/cloudflared/token"
-	"github.com/cloudflare/cloudflared/validation"
+	"github.com/jpillora/cloudflared/carrier"
+	"github.com/jpillora/cloudflared/cmd/cloudflared/cliutil"
+	cfdflags "github.com/jpillora/cloudflared/cmd/cloudflared/flags"
+	"github.com/jpillora/cloudflared/logger"
+	"github.com/jpillora/cloudflared/sshgen"
+	"github.com/jpillora/cloudflared/token"
+	"github.com/jpillora/cloudflared/validation"
 )
 
 const (

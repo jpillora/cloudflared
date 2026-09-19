@@ -12,7 +12,7 @@ import (
 	"github.com/mitchellh/go-homedir"
 	"github.com/rs/zerolog"
 
-	"github.com/cloudflare/cloudflared/config"
+	"github.com/jpillora/cloudflared/config"
 )
 
 const (

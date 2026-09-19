@@ -7,12 +7,12 @@ ENV GO111MODULE=on \
   GOPROXY=https://athens.cfdata.org|https://proxy.golang.org|direct \
   TARGET_GOOS=${TARGET_GOOS} \
   TARGET_GOARCH=${TARGET_GOARCH} \
-  # the CONTAINER_BUILD envvar is used set github.com/cloudflare/cloudflared/metrics.Runtime=virtual
+  # the CONTAINER_BUILD envvar is used set github.com/jpillora/cloudflared/metrics.Runtime=virtual
   # which changes how cloudflared binds the metrics server
   CONTAINER_BUILD=1
 
 
-WORKDIR /go/src/github.com/cloudflare/cloudflared/
+WORKDIR /go/src/github.com/jpillora/cloudflared/
 
 # Download dependencies in their own layer so source-only changes reuse it.
 COPY go.mod go.sum ./
@@ -29,7 +29,7 @@ FROM gcr.io/distroless/base-debian13:nonroot@sha256:d199d20fb09c898d8822ae5cbd5c
 LABEL org.opencontainers.image.source="https://github.com/cloudflare/cloudflared"
 
 # copy our compiled binary
-COPY --from=builder --chown=nonroot /go/src/github.com/cloudflare/cloudflared/cloudflared /usr/local/bin/
+COPY --from=builder --chown=nonroot /go/src/github.com/jpillora/cloudflared/cloudflared /usr/local/bin/
 
 # run as nonroot user
 # We need to use numeric user id's because Kubernetes doesn't support strings:

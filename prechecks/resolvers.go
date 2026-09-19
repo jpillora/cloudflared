@@ -10,9 +10,9 @@ import (
 	"github.com/quic-go/quic-go"
 	"github.com/rs/zerolog"
 
-	"github.com/cloudflare/cloudflared/connection/dialopts"
-	"github.com/cloudflare/cloudflared/edgediscovery/allregions"
-	cfdquic "github.com/cloudflare/cloudflared/quic"
+	"github.com/jpillora/cloudflared/connection/dialopts"
+	"github.com/jpillora/cloudflared/edgediscovery/allregions"
+	cfdquic "github.com/jpillora/cloudflared/quic"
 )
 
 // DNSResolver abstracts edge DNS discovery used by DNS probes.

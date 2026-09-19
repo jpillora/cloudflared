@@ -18,9 +18,9 @@ import (
 	"golang.org/x/net/proxy"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/cloudflare/cloudflared/socks"
-	"github.com/cloudflare/cloudflared/stream"
-	"github.com/cloudflare/cloudflared/websocket"
+	"github.com/jpillora/cloudflared/socks"
+	"github.com/jpillora/cloudflared/stream"
+	"github.com/jpillora/cloudflared/websocket"
 )
 
 const (

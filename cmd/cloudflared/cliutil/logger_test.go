@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli/v2/altsrc"
 
-	"github.com/cloudflare/cloudflared/cmd/cloudflared/flags"
+	"github.com/jpillora/cloudflared/cmd/cloudflared/flags"
 )
 
 func TestTransportLogLevelFlagIsDeprecatedAndHidden(t *testing.T) {

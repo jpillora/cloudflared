@@ -12,8 +12,8 @@ import (
 	"zombiezen.com/go/capnproto2/rpc"
 	"zombiezen.com/go/capnproto2/server"
 
-	"github.com/cloudflare/cloudflared/tunnelrpc/metrics"
-	"github.com/cloudflare/cloudflared/tunnelrpc/proto"
+	"github.com/jpillora/cloudflared/tunnelrpc/metrics"
+	"github.com/jpillora/cloudflared/tunnelrpc/proto"
 )
 
 type RegistrationServer interface {

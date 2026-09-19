@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
-	"github.com/cloudflare/cloudflared/edgediscovery/allregions"
-	"github.com/cloudflare/cloudflared/mocks"
+	"github.com/jpillora/cloudflared/edgediscovery/allregions"
+	"github.com/jpillora/cloudflared/mocks"
 )
 
 // Test constants for repeated string values.

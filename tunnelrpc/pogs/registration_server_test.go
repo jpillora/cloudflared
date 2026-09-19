@@ -13,7 +13,7 @@ import (
 	capnp "zombiezen.com/go/capnproto2"
 	"zombiezen.com/go/capnproto2/rpc"
 
-	"github.com/cloudflare/cloudflared/tunnelrpc/proto"
+	"github.com/jpillora/cloudflared/tunnelrpc/proto"
 )
 
 const testAccountTag = "abc123"

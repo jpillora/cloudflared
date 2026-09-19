@@ -8,10 +8,10 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/cloudflare/cloudflared/ipaccess"
-	"github.com/cloudflare/cloudflared/socks"
-	"github.com/cloudflare/cloudflared/stream"
-	"github.com/cloudflare/cloudflared/websocket"
+	"github.com/jpillora/cloudflared/ipaccess"
+	"github.com/jpillora/cloudflared/socks"
+	"github.com/jpillora/cloudflared/stream"
+	"github.com/jpillora/cloudflared/websocket"
 )
 
 // OriginConnection is a way to stream to a service running on the user's origin.

@@ -16,9 +16,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/websocket"
 
-	"github.com/cloudflare/cloudflared/hello"
-	"github.com/cloudflare/cloudflared/tlsconfig"
-	cfwebsocket "github.com/cloudflare/cloudflared/websocket"
+	"github.com/jpillora/cloudflared/hello"
+	"github.com/jpillora/cloudflared/tlsconfig"
+	cfwebsocket "github.com/jpillora/cloudflared/websocket"
 )
 
 func websocketClientTLSConfig(t *testing.T) *tls.Config {

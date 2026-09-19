@@ -10,9 +10,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 
-	"github.com/cloudflare/cloudflared/cfapi"
-	"github.com/cloudflare/cloudflared/cmd/cloudflared/cliutil"
-	"github.com/cloudflare/cloudflared/cmd/cloudflared/updater"
+	"github.com/jpillora/cloudflared/cfapi"
+	"github.com/jpillora/cloudflared/cmd/cloudflared/cliutil"
+	"github.com/jpillora/cloudflared/cmd/cloudflared/updater"
 )
 
 var (

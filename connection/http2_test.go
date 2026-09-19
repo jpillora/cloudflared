@@ -20,11 +20,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/http2"
 
-	"github.com/cloudflare/cloudflared/client"
-	"github.com/cloudflare/cloudflared/tracing"
+	"github.com/jpillora/cloudflared/client"
+	"github.com/jpillora/cloudflared/tracing"
 
-	"github.com/cloudflare/cloudflared/tunnelrpc"
-	"github.com/cloudflare/cloudflared/tunnelrpc/pogs"
+	"github.com/jpillora/cloudflared/tunnelrpc"
+	"github.com/jpillora/cloudflared/tunnelrpc/pogs"
 )
 
 var testTransport = http2.Transport{}

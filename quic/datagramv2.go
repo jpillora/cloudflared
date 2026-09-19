@@ -7,8 +7,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
-	"github.com/cloudflare/cloudflared/packet"
-	"github.com/cloudflare/cloudflared/tracing"
+	"github.com/jpillora/cloudflared/packet"
+	"github.com/jpillora/cloudflared/tracing"
 )
 
 type DatagramV2Type byte

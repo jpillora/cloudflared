@@ -12,8 +12,8 @@ import (
 	"github.com/quic-go/quic-go"
 	"github.com/rs/zerolog"
 
-	"github.com/cloudflare/cloudflared/connection/dialopts"
-	cfdquic "github.com/cloudflare/cloudflared/quic"
+	"github.com/jpillora/cloudflared/connection/dialopts"
+	cfdquic "github.com/jpillora/cloudflared/quic"
 )
 
 var (

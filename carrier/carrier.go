@@ -16,7 +16,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
-	"github.com/cloudflare/cloudflared/token"
+	"github.com/jpillora/cloudflared/token"
 )
 
 const (

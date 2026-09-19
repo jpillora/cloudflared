@@ -14,9 +14,9 @@ import (
 	"github.com/urfave/cli/v2"
 	yaml "gopkg.in/yaml.v3"
 
-	"github.com/cloudflare/cloudflared/config"
-	"github.com/cloudflare/cloudflared/ipaccess"
-	"github.com/cloudflare/cloudflared/tlsconfig"
+	"github.com/jpillora/cloudflared/config"
+	"github.com/jpillora/cloudflared/ipaccess"
+	"github.com/jpillora/cloudflared/tlsconfig"
 )
 
 func TestParseUnixSocket(t *testing.T) {

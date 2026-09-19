@@ -16,11 +16,11 @@ import (
 	"github.com/urfave/cli/v2"
 	"nhooyr.io/websocket"
 
-	"github.com/cloudflare/cloudflared/cfapi"
-	"github.com/cloudflare/cloudflared/cmd/cloudflared/cliutil"
-	cfdflags "github.com/cloudflare/cloudflared/cmd/cloudflared/flags"
-	"github.com/cloudflare/cloudflared/credentials"
-	"github.com/cloudflare/cloudflared/management"
+	"github.com/jpillora/cloudflared/cfapi"
+	"github.com/jpillora/cloudflared/cmd/cloudflared/cliutil"
+	cfdflags "github.com/jpillora/cloudflared/cmd/cloudflared/flags"
+	"github.com/jpillora/cloudflared/credentials"
+	"github.com/jpillora/cloudflared/management"
 )
 
 var buildInfo *cliutil.BuildInfo

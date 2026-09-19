@@ -14,11 +14,11 @@ import (
 	"github.com/urfave/cli/v2"
 	"golang.org/x/term"
 
-	"github.com/cloudflare/cloudflared/cmd/cloudflared/cliutil"
-	cfdflags "github.com/cloudflare/cloudflared/cmd/cloudflared/flags"
-	"github.com/cloudflare/cloudflared/cmd/cloudflared/inits"
-	"github.com/cloudflare/cloudflared/config"
-	"github.com/cloudflare/cloudflared/logger"
+	"github.com/jpillora/cloudflared/cmd/cloudflared/cliutil"
+	cfdflags "github.com/jpillora/cloudflared/cmd/cloudflared/flags"
+	"github.com/jpillora/cloudflared/cmd/cloudflared/inits"
+	"github.com/jpillora/cloudflared/config"
+	"github.com/jpillora/cloudflared/logger"
 )
 
 const (

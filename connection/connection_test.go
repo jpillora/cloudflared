@@ -14,12 +14,12 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
-	cfdflow "github.com/cloudflare/cloudflared/flow"
+	cfdflow "github.com/jpillora/cloudflared/flow"
 
-	"github.com/cloudflare/cloudflared/stream"
-	"github.com/cloudflare/cloudflared/tracing"
-	tunnelpogs "github.com/cloudflare/cloudflared/tunnelrpc/pogs"
-	"github.com/cloudflare/cloudflared/websocket"
+	"github.com/jpillora/cloudflared/stream"
+	"github.com/jpillora/cloudflared/tracing"
+	tunnelpogs "github.com/jpillora/cloudflared/tunnelrpc/pogs"
+	"github.com/jpillora/cloudflared/websocket"
 )
 
 const (

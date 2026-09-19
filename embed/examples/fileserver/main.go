@@ -15,8 +15,8 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/cloudflare/cloudflared/cmd/cloudflared/tunnel"
-	"github.com/cloudflare/cloudflared/connection"
+	"github.com/jpillora/cloudflared/cmd/cloudflared/tunnel"
+	"github.com/jpillora/cloudflared/connection"
 )
 
 func main() {

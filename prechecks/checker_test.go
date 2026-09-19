@@ -13,10 +13,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
-	"github.com/cloudflare/cloudflared/connection"
-	"github.com/cloudflare/cloudflared/edgediscovery/allregions"
-	"github.com/cloudflare/cloudflared/features"
-	"github.com/cloudflare/cloudflared/mocks"
+	"github.com/jpillora/cloudflared/connection"
+	"github.com/jpillora/cloudflared/edgediscovery/allregions"
+	"github.com/jpillora/cloudflared/features"
+	"github.com/jpillora/cloudflared/mocks"
 )
 
 const (

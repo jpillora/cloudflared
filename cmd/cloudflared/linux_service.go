@@ -11,11 +11,11 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/urfave/cli/v2"
 
-	"github.com/cloudflare/cloudflared/cmd/cloudflared/cliutil"
-	"github.com/cloudflare/cloudflared/cmd/cloudflared/inits"
-	"github.com/cloudflare/cloudflared/cmd/cloudflared/tunnel"
-	"github.com/cloudflare/cloudflared/config"
-	"github.com/cloudflare/cloudflared/logger"
+	"github.com/jpillora/cloudflared/cmd/cloudflared/cliutil"
+	"github.com/jpillora/cloudflared/cmd/cloudflared/inits"
+	"github.com/jpillora/cloudflared/cmd/cloudflared/tunnel"
+	"github.com/jpillora/cloudflared/config"
+	"github.com/jpillora/cloudflared/logger"
 )
 
 func runApp(app *cli.App, _ chan struct{}) {

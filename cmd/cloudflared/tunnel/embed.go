@@ -18,10 +18,10 @@ import (
 	"github.com/urfave/cli/v2"
 	"google.golang.org/grpc/test/bufconn"
 
-	"github.com/cloudflare/cloudflared/cmd/cloudflared/cliutil"
-	cfdflags "github.com/cloudflare/cloudflared/cmd/cloudflared/flags"
-	"github.com/cloudflare/cloudflared/connection"
-	"github.com/cloudflare/cloudflared/ingress"
+	"github.com/jpillora/cloudflared/cmd/cloudflared/cliutil"
+	cfdflags "github.com/jpillora/cloudflared/cmd/cloudflared/flags"
+	"github.com/jpillora/cloudflared/connection"
+	"github.com/jpillora/cloudflared/ingress"
 )
 
 // defaultQuickService is the trycloudflare endpoint that allocates account-less

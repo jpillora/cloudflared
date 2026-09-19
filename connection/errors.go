@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	tunnelpogs "github.com/cloudflare/cloudflared/tunnelrpc/pogs"
+	tunnelpogs "github.com/jpillora/cloudflared/tunnelrpc/pogs"
 )
 
 const (

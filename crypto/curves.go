@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/cloudflare/cloudflared/features"
+	"github.com/jpillora/cloudflared/features"
 )
 
 // errUnknownPostQuantumMode is returned by GetCurvePreferences when the

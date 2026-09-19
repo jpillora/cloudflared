@@ -7,7 +7,7 @@ import (
 	"github.com/urfave/cli/v2"
 	"github.com/urfave/cli/v2/altsrc"
 
-	"github.com/cloudflare/cloudflared/cmd/cloudflared/flags"
+	"github.com/jpillora/cloudflared/cmd/cloudflared/flags"
 )
 
 var (

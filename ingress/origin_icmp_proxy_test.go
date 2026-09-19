@@ -19,9 +19,9 @@ import (
 	"golang.org/x/net/ipv4"
 	"golang.org/x/net/ipv6"
 
-	"github.com/cloudflare/cloudflared/packet"
-	quicpogs "github.com/cloudflare/cloudflared/quic"
-	"github.com/cloudflare/cloudflared/tracing"
+	"github.com/jpillora/cloudflared/packet"
+	quicpogs "github.com/jpillora/cloudflared/quic"
+	"github.com/jpillora/cloudflared/tracing"
 )
 
 var (

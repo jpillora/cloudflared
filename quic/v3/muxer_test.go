@@ -21,10 +21,10 @@ import (
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
 
-	cfdflow "github.com/cloudflare/cloudflared/flow"
-	"github.com/cloudflare/cloudflared/ingress"
-	"github.com/cloudflare/cloudflared/packet"
-	v3 "github.com/cloudflare/cloudflared/quic/v3"
+	cfdflow "github.com/jpillora/cloudflared/flow"
+	"github.com/jpillora/cloudflared/ingress"
+	"github.com/jpillora/cloudflared/packet"
+	v3 "github.com/jpillora/cloudflared/quic/v3"
 )
 
 type noopEyeball struct {

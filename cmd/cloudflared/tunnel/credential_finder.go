@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"path/filepath"
 
-	cfdflags "github.com/cloudflare/cloudflared/cmd/cloudflared/flags"
-	"github.com/cloudflare/cloudflared/config"
-	"github.com/cloudflare/cloudflared/credentials"
+	cfdflags "github.com/jpillora/cloudflared/cmd/cloudflared/flags"
+	"github.com/jpillora/cloudflared/config"
+	"github.com/jpillora/cloudflared/credentials"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"

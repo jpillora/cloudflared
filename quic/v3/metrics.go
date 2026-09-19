@@ -5,7 +5,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/cloudflare/cloudflared/quic"
+	"github.com/jpillora/cloudflared/quic"
 )
 
 const (

@@ -11,13 +11,13 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
-	"github.com/cloudflare/cloudflared/cmd/cloudflared/flags"
-	"github.com/cloudflare/cloudflared/config"
-	"github.com/cloudflare/cloudflared/connection"
-	cfdflow "github.com/cloudflare/cloudflared/flow"
-	"github.com/cloudflare/cloudflared/ingress"
-	"github.com/cloudflare/cloudflared/proxy"
-	"github.com/cloudflare/cloudflared/tunnelrpc/pogs"
+	"github.com/jpillora/cloudflared/cmd/cloudflared/flags"
+	"github.com/jpillora/cloudflared/config"
+	"github.com/jpillora/cloudflared/connection"
+	cfdflow "github.com/jpillora/cloudflared/flow"
+	"github.com/jpillora/cloudflared/ingress"
+	"github.com/jpillora/cloudflared/proxy"
+	"github.com/jpillora/cloudflared/tunnelrpc/pogs"
 )
 
 // Orchestrator manages configurations, so they can be updatable during runtime

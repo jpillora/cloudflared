@@ -8,7 +8,7 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/cloudflare/cloudflared/ipaccess"
+	"github.com/jpillora/cloudflared/ipaccess"
 )
 
 // RequestHandler is the functions needed to handle a SOCKS5 command
