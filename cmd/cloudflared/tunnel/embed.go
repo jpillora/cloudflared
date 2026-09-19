@@ -483,9 +483,24 @@ func (o Config) runQuick(ctx context.Context, c *cli.Context, info *cliutil.Buil
 	if err != nil {
 		return fmt.Errorf("embed: read quick tunnel response: %w", err)
 	}
+	// Mirror RunQuickTunnel's provisioning checks, so a rejected allocation
+	// surfaces the service's own error instead of failing later on an empty ID.
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		var data QuickTunnelResponse
+		if err := json.Unmarshal(body, &data); err == nil && len(data.Errors) > 0 {
+			return fmt.Errorf("embed: quick tunnel provisioning failed (%s): %s", resp.Status, formatQuickTunnelErrors(data.Errors))
+		}
+		return fmt.Errorf("embed: quick tunnel provisioning failed (%s): %s", resp.Status, string(body))
+	}
 	var data QuickTunnelResponse
 	if err := json.Unmarshal(body, &data); err != nil {
 		return fmt.Errorf("embed: unmarshal quick tunnel response (%s): %w", resp.Status, err)
+	}
+	if len(data.Errors) > 0 {
+		return fmt.Errorf("embed: quick tunnel provisioning failed: %s", formatQuickTunnelErrors(data.Errors))
+	}
+	if !data.Success {
+		return errors.New("embed: quick tunnel provisioning failed")
 	}
 	tunnelID, err := uuid.Parse(data.Result.ID)
 	if err != nil {
